@@ -38,6 +38,20 @@
     Shipped: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
   };
 
+  /** Подписи статусов (значения в данных — на англ.) */
+  const STATUS_LABELS = {
+    Draft: "Черновик",
+    Sampling: "Образцы",
+    Production: "Производство",
+    QC: "ОТК",
+    Shipped: "Отгружен",
+  };
+
+  /** @param {string} s */
+  function statusRu(s) {
+    return STATUS_LABELS[/** @type {keyof typeof STATUS_LABELS} */ (s)] || s;
+  }
+
   const els = {
     body: document.getElementById("orders-body"),
     cards: document.getElementById("orders-cards"),
@@ -97,12 +111,24 @@
   }
 
   function formatMoney(n) {
-    const sign = n < 0 ? "−" : "";
-    return sign + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    return new Intl.NumberFormat("ru-RU", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(n);
   }
 
   function formatPct(n) {
-    return n.toLocaleString("en-US", { maximumFractionDigits: 1 }) + "%";
+    return n.toLocaleString("ru-RU", { maximumFractionDigits: 1 }) + "%";
+  }
+
+  function formatOrderCountRu(n) {
+    const m10 = n % 10;
+    const m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return n + " заказ";
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return n + " заказа";
+    return n + " заказов";
   }
 
   function profitClass(marginPct) {
@@ -172,10 +198,8 @@
     const total = orders.length;
     els.count.textContent =
       searchQuery.trim() && n !== total
-        ? n + " of " + total + " shown"
-        : n === 1
-          ? "1 order"
-          : n + " orders";
+        ? n + " из " + total + " показано"
+        : formatOrderCountRu(n);
   }
 
   function updateBudgetLeakFromForm() {
@@ -195,11 +219,11 @@
     els.segPocket.style.width = p + "%";
 
     if (budget <= 0) {
-      els.remainingLabel.textContent = "Remaining: —";
+      els.remainingLabel.textContent = "Остаток: —";
       els.remainingLabel.className = "tabular-nums font-semibold text-slate-900";
       return;
     }
-    els.remainingLabel.textContent = "Remaining: " + formatMoney(profit) + " (" + formatPct((profit / budget) * 100) + ")";
+    els.remainingLabel.textContent = "Остаток: " + formatMoney(profit) + " (" + formatPct((profit / budget) * 100) + ")";
     els.remainingLabel.className =
       profit < 0
         ? "tabular-nums font-semibold text-red-600"
@@ -233,8 +257,8 @@
       if (els.emptyMsg) {
         els.emptyMsg.innerHTML =
           orders.length === 0
-            ? 'No orders yet. Tap <strong class="text-slate-800">New order</strong> to start from the client budget.'
-            : "No orders match your search. Try another name or clear the search box.";
+            ? 'Заказов пока нет. Нажмите <strong class="text-slate-800">Новый заказ</strong>, чтобы начать с бюджета клиента.'
+            : "Нет совпадений с поиском. Попробуйте другое имя или очистите поле поиска.";
       }
       updateKpis();
       refreshIcons();
@@ -247,6 +271,7 @@
       const pct = Math.min(100, Math.max(0, o.progressPercent));
       const badge = STATUS_BADGE[o.status] || STATUS_BADGE.Draft;
       const pCls = profitClass(c.marginPct);
+      const statusText = statusRu(o.status);
 
       if (els.body) {
         const tr = document.createElement("tr");
@@ -267,11 +292,11 @@
             </div>
           </td>
           <td class="px-5 py-3">
-            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badge}">${escapeHtml(o.status)}</span>
+            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badge}">${escapeHtml(statusText)}</span>
           </td>
           <td class="px-5 py-3 text-right whitespace-nowrap">
-            <button type="button" class="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100" data-act="edit" data-id="${o.id}">Edit</button>
-            <button type="button" class="rounded-lg px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" data-act="del" data-id="${o.id}">Delete</button>
+            <button type="button" class="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100" data-act="edit" data-id="${o.id}">Изменить</button>
+            <button type="button" class="rounded-lg px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" data-act="del" data-id="${o.id}">Удалить</button>
           </td>
         `;
 
@@ -282,27 +307,27 @@
             <div class="order-expand" id="ex-${o.id}">
               <div class="order-expand-inner">
                 <div class="border-t border-slate-100 px-5 py-5">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Where the budget went</p>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Куда ушёл бюджет</p>
                   <div class="mt-4 grid gap-4 sm:grid-cols-3">
                     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <p class="text-[10px] font-semibold uppercase text-slate-400">Workshop</p>
+                      <p class="text-[10px] font-semibold uppercase text-slate-400">Цех</p>
                       <p class="mt-1 text-lg font-bold tabular-nums text-slate-900">${formatMoney(c.workshopCost)}</p>
-                      <p class="mt-1 text-xs text-slate-500">${formatPct(o.clientBudget > 0 ? (c.workshopCost / o.clientBudget) * 100 : 0)} of budget</p>
+                      <p class="mt-1 text-xs text-slate-500">${formatPct(o.clientBudget > 0 ? (c.workshopCost / o.clientBudget) * 100 : 0)} от бюджета</p>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <p class="text-[10px] font-semibold uppercase text-slate-400">Materials</p>
+                      <p class="text-[10px] font-semibold uppercase text-slate-400">Материалы</p>
                       <p class="mt-1 text-lg font-bold tabular-nums text-amber-700">${formatMoney(c.materials)}</p>
-                      <p class="mt-1 text-xs text-slate-500">${formatPct(o.clientBudget > 0 ? (c.materials / o.clientBudget) * 100 : 0)} of budget</p>
+                      <p class="mt-1 text-xs text-slate-500">${formatPct(o.clientBudget > 0 ? (c.materials / o.clientBudget) * 100 : 0)} от бюджета</p>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <p class="text-[10px] font-semibold uppercase text-slate-400">Your pocket</p>
+                      <p class="text-[10px] font-semibold uppercase text-slate-400">Ваш карман</p>
                       <p class="mt-1 text-lg font-bold tabular-nums ${c.profit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(c.profit)}</p>
-                      <p class="mt-1 text-xs text-slate-500">Net after workshop + materials + logistics</p>
+                      <p class="mt-1 text-xs text-slate-500">После цеха, материалов и логистики</p>
                     </div>
                   </div>
                   <div class="mt-4 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-600">
-                    Logistics &amp; misc: <strong class="tabular-nums text-slate-800">${formatMoney(c.logistics)}</strong>
-                    · Margin: <strong class="${c.marginPct < 10 ? "text-red-600" : c.marginPct > 20 ? "text-emerald-600" : "text-slate-800"}">${formatPct(c.marginPct)}</strong>
+                    Логистика и прочее: <strong class="tabular-nums text-slate-800">${formatMoney(c.logistics)}</strong>
+                    · Маржа: <strong class="${c.marginPct < 10 ? "text-red-600" : c.marginPct > 20 ? "text-emerald-600" : "text-slate-800"}">${formatPct(c.marginPct)}</strong>
                   </div>
                 </div>
               </div>
@@ -326,7 +351,7 @@
             </span>
           </button>
           <div class="mt-3 flex items-center justify-between gap-2">
-            <span class="text-[10px] uppercase text-slate-400">Profit</span>
+            <span class="text-[10px] uppercase text-slate-400">Прибыль</span>
             <span class="text-base ${pCls}">${formatMoney(c.profit)}</span>
           </div>
           <div class="mt-2">
@@ -335,23 +360,23 @@
             </div>
           </div>
           <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
-            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badge}">${escapeHtml(o.status)}</span>
+            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badge}">${escapeHtml(statusText)}</span>
             <div class="flex gap-1">
-              <button type="button" class="rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100" data-act="edit" data-id="${o.id}">Edit</button>
-              <button type="button" class="rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50" data-act="del" data-id="${o.id}">Delete</button>
+              <button type="button" class="rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100" data-act="edit" data-id="${o.id}">Изменить</button>
+              <button type="button" class="rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50" data-act="del" data-id="${o.id}">Удалить</button>
             </div>
           </div>
           <div class="order-expand mt-3" id="ex-mob-${o.id}">
             <div class="order-expand-inner">
               <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <p class="text-xs font-semibold uppercase text-slate-500">Where the budget went</p>
+                <p class="text-xs font-semibold uppercase text-slate-500">Куда ушёл бюджет</p>
                 <ul class="mt-3 space-y-2 text-sm">
-                  <li class="flex justify-between"><span class="text-slate-500">Workshop</span><span class="font-medium tabular-nums">${formatMoney(c.workshopCost)}</span></li>
-                  <li class="flex justify-between"><span class="text-slate-500">Materials</span><span class="font-medium tabular-nums">${formatMoney(c.materials)}</span></li>
-                  <li class="flex justify-between"><span class="text-slate-500">Logistics &amp; misc</span><span class="font-medium tabular-nums">${formatMoney(c.logistics)}</span></li>
-                  <li class="flex justify-between border-t border-slate-200 pt-2 font-semibold"><span class="text-slate-700">Your pocket</span><span class="${c.profit >= 0 ? "text-emerald-600" : "text-red-600"} tabular-nums">${formatMoney(c.profit)}</span></li>
+                  <li class="flex justify-between"><span class="text-slate-500">Цех</span><span class="font-medium tabular-nums">${formatMoney(c.workshopCost)}</span></li>
+                  <li class="flex justify-between"><span class="text-slate-500">Материалы</span><span class="font-medium tabular-nums">${formatMoney(c.materials)}</span></li>
+                  <li class="flex justify-between"><span class="text-slate-500">Логистика и прочее</span><span class="font-medium tabular-nums">${formatMoney(c.logistics)}</span></li>
+                  <li class="flex justify-between border-t border-slate-200 pt-2 font-semibold"><span class="text-slate-700">Ваш карман</span><span class="${c.profit >= 0 ? "text-emerald-600" : "text-red-600"} tabular-nums">${formatMoney(c.profit)}</span></li>
                 </ul>
-                <p class="mt-2 text-xs text-slate-500">Margin ${formatPct(c.marginPct)} · ${formatPct(o.clientBudget > 0 ? (c.workshopCost / o.clientBudget) * 100 : 0)} workshop / budget</p>
+                <p class="mt-2 text-xs text-slate-500">Маржа ${formatPct(c.marginPct)} · цех ${formatPct(o.clientBudget > 0 ? (c.workshopCost / o.clientBudget) * 100 : 0)} от бюджета</p>
               </div>
             </div>
           </div>
@@ -410,8 +435,8 @@
     els.panel.classList.add("is-open");
     els.panel.classList.remove("opacity-0", "pointer-events-none");
     els.panel.classList.add("opacity-100", "pointer-events-auto");
-    els.title.textContent = isEdit ? "Edit order" : "New order";
-    els.submit.textContent = isEdit ? "Update" : "Save order";
+    els.title.textContent = isEdit ? "Редактировать заказ" : "Новый заказ";
+    els.submit.textContent = isEdit ? "Обновить" : "Сохранить";
     document.body.style.overflow = "hidden";
     updateBudgetLeakFromForm();
     refreshIcons();
@@ -463,7 +488,7 @@
   }
 
   function removeOrder(id) {
-    if (!id || !confirm("Delete this order?")) return;
+    if (!id || !confirm("Удалить этот заказ?")) return;
     orders = orders.filter((o) => o.id !== id);
     save();
     renderTable();
@@ -486,23 +511,23 @@
     const edit = els.editId.value.trim();
 
     if (!orderName || !clientName) {
-      showErr("Order name and client are required.");
+      showErr("Укажите название заказа и клиента.");
       return;
     }
     if (Number.isNaN(clientBudget) || clientBudget < 0) {
-      showErr("Enter a valid client budget.");
+      showErr("Введите корректный бюджет клиента.");
       return;
     }
     if (Number.isNaN(quantity) || quantity < 1) {
-      showErr("Quantity must be at least 1.");
+      showErr("Количество не меньше 1.");
       return;
     }
     if (Number.isNaN(factoryPrice) || factoryPrice < 0) {
-      showErr("Workshop price per unit must be valid.");
+      showErr("Укажите корректную цену цеха за единицу.");
       return;
     }
     if (Number.isNaN(materialCosts) || materialCosts < 0 || Number.isNaN(logisticsMisc) || logisticsMisc < 0) {
-      showErr("Material and logistics costs must be non-negative.");
+      showErr("Материалы и логистика — неотрицательные числа.");
       return;
     }
 
