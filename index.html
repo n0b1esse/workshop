@@ -1,22 +1,20 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Посредник по швейному производству — панель управления</title>
+  <title>Sewing Broker Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: "class",
       theme: {
         extend: {
-          fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
-          boxShadow: {
-            card: "0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06)",
-            "card-hover": "0 10px 40px -10px rgb(0 0 0 / 0.12)",
+          fontFamily: { sans: ["DM Sans", "system-ui", "sans-serif"] },
+          colors: {
+            broker: { 50: "#f5f7fa", 900: "#0f1419" },
           },
         },
       },
@@ -24,261 +22,233 @@
   </script>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body class="font-sans antialiased text-slate-800 bg-slate-100 min-h-screen pb-[env(safe-area-inset-bottom)]">
-  <!-- Затемнение под мобильное меню -->
-  <div
-    id="sidebar-backdrop"
-    class="sidebar-backdrop fixed inset-0 z-[60] bg-slate-900/50 lg:hidden opacity-0 pointer-events-none transition-opacity duration-300"
-    aria-hidden="true"
-  ></div>
-
-  <div class="flex min-h-screen min-h-[100dvh]">
-    <aside
-      id="sidebar"
-      class="sidebar fixed inset-y-0 left-0 z-[70] flex w-[min(17.5rem,88vw)] shrink-0 -translate-x-full flex-col border-r border-slate-800 bg-slate-900 text-slate-200 transition-transform duration-300 ease-out lg:relative lg:z-0 lg:w-64 lg:translate-x-0"
-      aria-label="Боковое меню"
-    >
-      <div class="p-6 border-b border-slate-800/80">
+<body class="min-h-[100dvh] bg-slate-50 font-sans text-slate-900 antialiased">
+  <div class="flex min-h-[100dvh] flex-col lg:flex-row">
+    <!-- Sidebar -->
+    <aside class="border-b border-slate-200/80 bg-white lg:w-56 lg:shrink-0 lg:border-b-0 lg:border-r">
+      <div class="flex items-center justify-between gap-3 px-4 py-4 lg:flex-col lg:items-stretch lg:px-5 lg:py-8">
         <div class="flex items-center gap-3">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg">
-            <i data-lucide="shirt" class="h-5 w-5 text-white" aria-hidden="true"></i>
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white shadow-md">
+            <i data-lucide="scissors" class="h-5 w-5" aria-hidden="true"></i>
           </div>
           <div>
-            <p class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Посредник</p>
-            <p class="font-semibold text-white tracking-tight">Швейное производство</p>
+            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Broker</p>
+            <p class="font-semibold text-slate-900">Sewing Ops</p>
           </div>
         </div>
-      </div>
-      <nav class="flex-1 p-3 space-y-0.5" aria-label="Основное меню">
-        <a href="#" class="nav-link flex items-center gap-3 rounded-lg bg-slate-800/90 px-3 py-2.5 text-white border border-slate-700/50">
-          <i data-lucide="layout-dashboard" class="h-4 w-4 shrink-0 opacity-90" aria-hidden="true"></i>
-          <span class="text-sm font-medium">Дашборд</span>
-        </a>
-        <a href="#" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors">
-          <i data-lucide="package" class="h-4 w-4 shrink-0" aria-hidden="true"></i>
-          <span class="text-sm">Заказы</span>
-        </a>
-        <a href="#" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors">
-          <i data-lucide="building-2" class="h-4 w-4 shrink-0" aria-hidden="true"></i>
-          <span class="text-sm">Цеха</span>
-        </a>
-        <a href="#" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors">
-          <i data-lucide="settings" class="h-4 w-4 shrink-0" aria-hidden="true"></i>
-          <span class="text-sm">Настройки</span>
-        </a>
-      </nav>
-      <div class="p-4 border-t border-slate-800/80 text-xs text-slate-500 flex items-center gap-2">
-        <i data-lucide="hard-drive" class="h-3.5 w-3.5 text-emerald-500/90" aria-hidden="true"></i>
-        <span>Локальные данные · <span id="sync-label" class="text-emerald-400/90">Сохранено</span></span>
+        <p class="hidden text-xs text-slate-500 lg:block">Production &amp; margin control</p>
       </div>
     </aside>
 
-    <div class="flex min-w-0 flex-1 flex-col lg:min-h-screen">
-      <header
-        class="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-slate-200/80 bg-white/95 px-3 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-white/90 sm:gap-4 sm:px-6 sm:py-4 md:px-8"
-      >
-        <button
-          type="button"
-          id="btn-menu"
-          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] lg:hidden"
-          aria-expanded="false"
-          aria-controls="sidebar"
-          aria-label="Открыть меню"
-        >
-          <i data-lucide="menu" class="h-5 w-5" aria-hidden="true"></i>
-        </button>
-        <div class="min-w-0 flex-1">
-          <h1 class="truncate text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">Панель управления</h1>
-          <p class="mt-0.5 hidden text-sm text-slate-500 sm:block">Посредник в швейном производстве — заказы и маржа</p>
+    <div class="flex min-w-0 flex-1 flex-col">
+      <!-- Top bar -->
+      <header class="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6">
+        <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-3">
+          <div class="min-w-0 flex-1">
+            <h1 class="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">Sewing Broker Dashboard</h1>
+            <p class="text-xs text-slate-500 sm:text-sm">Client budget → workshop, materials, logistics — then what stays in your pocket.</p>
+          </div>
+          <div class="flex w-full items-center gap-2 sm:w-auto sm:min-w-[200px]">
+            <label for="search-input" class="sr-only">Search orders</label>
+            <div class="relative flex-1 sm:max-w-xs">
+              <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true"></i>
+              <input
+                id="search-input"
+                type="search"
+                placeholder="Search client or order…"
+                class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            id="btn-new-order"
+            class="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 active:scale-[0.98]"
+          >
+            <i data-lucide="plus" class="h-4 w-4" aria-hidden="true"></i>
+            <span class="hidden sm:inline">New order</span>
+            <span class="sm:hidden">New</span>
+          </button>
         </div>
-        <button
-          type="button"
-          id="btn-new-order"
-          class="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 active:scale-[0.98] sm:gap-2 sm:px-4"
-        >
-          <i data-lucide="plus" class="h-4 w-4 shrink-0" aria-hidden="true"></i>
-          <span class="hidden sm:inline">Новый заказ</span>
-          <span class="inline sm:hidden">Новый</span>
-        </button>
       </header>
 
-      <main class="mx-auto w-full max-w-[1600px] flex-1 space-y-6 px-3 py-4 sm:space-y-8 sm:p-6 md:p-8">
-        <section class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4" id="kpi-section" aria-label="Сводные показатели">
-          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition-all duration-300 sm:p-5 hover:shadow-card-hover">
-            <div class="flex items-start justify-between gap-2">
-              <p class="text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-500 sm:text-xs">Выручка всего</p>
-              <span class="rounded-lg bg-indigo-50 p-1.5 text-indigo-600 sm:p-2"><i data-lucide="banknote" class="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true"></i></span>
-            </div>
-            <p class="mt-2 text-lg font-bold tabular-nums text-slate-900 sm:mt-3 sm:text-2xl lg:text-3xl" id="kpi-revenue">0&nbsp;$</p>
-            <p class="mt-0.5 text-[10px] leading-snug text-slate-400 sm:mt-1 sm:text-xs">Сумма бюджетов клиентов</p>
+      <main class="mx-auto w-full max-w-6xl flex-1 space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        <!-- KPI -->
+        <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" id="kpi-section" aria-label="Summary">
+          <article class="kpi-card rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Total revenue</p>
+            <p class="mt-2 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl" id="kpi-revenue">$0</p>
+            <p class="mt-1 text-[11px] text-slate-500">Sum of client budgets</p>
           </article>
-          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition-all duration-300 sm:p-5 hover:shadow-card-hover">
-            <div class="flex items-start justify-between gap-2">
-              <p class="text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-500 sm:text-xs">Затраты всего</p>
-              <span class="rounded-lg bg-slate-100 p-1.5 text-slate-600 sm:p-2"><i data-lucide="receipt" class="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true"></i></span>
-            </div>
-            <p class="mt-2 text-lg font-bold tabular-nums text-slate-800 sm:mt-3 sm:text-2xl lg:text-3xl" id="kpi-costs">0&nbsp;$</p>
-            <p class="mt-0.5 text-[10px] leading-snug text-slate-400 sm:mt-1 sm:text-xs">Цех + материалы + прочие</p>
+          <article class="kpi-card rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Total expenses</p>
+            <p class="mt-2 text-xl font-bold tabular-nums text-slate-800 sm:text-2xl" id="kpi-expenses">$0</p>
+            <p class="mt-1 text-[11px] text-slate-500">Factory + materials + logistics</p>
           </article>
-          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition-all duration-300 sm:p-5 hover:shadow-card-hover">
-            <div class="flex items-start justify-between gap-2">
-              <p class="text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-500 sm:text-xs">Валовая прибыль</p>
-              <span class="rounded-lg bg-emerald-50 p-1.5 text-emerald-600 sm:p-2"><i data-lucide="trending-up" class="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true"></i></span>
-            </div>
-            <p class="mt-2 text-lg font-bold tabular-nums sm:mt-3 sm:text-2xl lg:text-3xl" id="kpi-profit">0&nbsp;$</p>
-            <p class="mt-0.5 text-[10px] leading-snug text-slate-400 sm:mt-1 sm:text-xs">Выручка − затраты</p>
+          <article class="kpi-card rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Clean profit</p>
+            <p class="mt-2 text-xl font-bold tabular-nums sm:text-2xl" id="kpi-profit">$0</p>
+            <p class="mt-1 text-[11px] text-slate-500">Budget − all costs</p>
           </article>
-          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition-all duration-300 sm:p-5 hover:shadow-card-hover">
-            <div class="flex items-start justify-between gap-2">
-              <p class="text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-500 sm:text-xs">Чистая маржа</p>
-              <span class="rounded-lg bg-violet-50 p-1.5 text-violet-600 sm:p-2"><i data-lucide="percent" class="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true"></i></span>
-            </div>
-            <p class="mt-2 text-lg font-bold tabular-nums text-violet-700 sm:mt-3 sm:text-2xl lg:text-3xl" id="kpi-margin">0%</p>
-            <p class="mt-0.5 text-[10px] leading-snug text-slate-400 sm:mt-1 sm:text-xs">Сводно по всем заказам</p>
+          <article class="kpi-card rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Avg. margin</p>
+            <p class="mt-2 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl" id="kpi-margin">0%</p>
+            <p class="mt-1 text-[11px] text-slate-500">Blended across orders</p>
           </article>
         </section>
 
-        <section class="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-card">
-          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
-            <h2 class="text-sm font-semibold text-slate-900">Заказы</h2>
-            <p class="text-xs text-slate-500" id="order-count">0 заказов</p>
+        <!-- Orders -->
+        <section class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-5">
+            <h2 class="text-sm font-semibold text-slate-900">Orders</h2>
+            <p class="text-xs text-slate-500" id="order-count">0 orders</p>
           </div>
-          <!-- Карточки: телефоны -->
-          <div id="orders-cards" class="md:hidden space-y-3 px-3 py-3 sm:px-4"></div>
+
+          <!-- Mobile cards -->
+          <div id="orders-cards" class="space-y-3 p-3 md:hidden"></div>
+
+          <!-- Desktop table -->
           <div class="hidden overflow-x-auto md:block">
-            <table class="w-full min-w-[1000px] text-left text-sm">
-              <thead class="text-xs uppercase text-slate-500 bg-slate-50/90 border-b border-slate-100">
+            <table class="w-full min-w-[640px] text-left text-sm">
+              <thead class="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th class="px-4 sm:px-6 py-3 font-semibold">Заказ / клиент</th>
-                  <th class="px-4 py-3 font-semibold">Цех</th>
-                  <th class="px-4 py-3 font-semibold tabular-nums">Выручка</th>
-                  <th class="px-4 py-3 font-semibold tabular-nums">Затраты</th>
-                  <th class="px-4 py-3 font-semibold tabular-nums">Прибыль</th>
-                  <th class="px-4 py-3 font-semibold">Маржа</th>
-                  <th class="px-4 py-3 font-semibold min-w-[180px]">Прогресс</th>
-                  <th class="px-4 py-3 font-semibold">Статус</th>
-                  <th class="px-4 py-3 font-semibold text-right">Действия</th>
+                  <th class="px-5 py-3">Order</th>
+                  <th class="px-5 py-3">Client</th>
+                  <th class="px-5 py-3 tabular-nums">Profit</th>
+                  <th class="min-w-[140px] px-5 py-3">Progress</th>
+                  <th class="px-5 py-3">Status</th>
+                  <th class="px-5 py-3 text-right"></th>
                 </tr>
               </thead>
               <tbody id="orders-body" class="divide-y divide-slate-100"></tbody>
             </table>
           </div>
-          <div id="empty-state" class="hidden px-4 py-12 text-center sm:px-6 sm:py-16">
-            <i data-lucide="inbox" class="h-12 w-12 mx-auto text-slate-300 mb-3" aria-hidden="true"></i>
-            <p class="text-slate-500 text-sm">Пока нет заказов. Создайте через <strong class="text-slate-700">Новый заказ</strong>.</p>
+
+          <div id="empty-state" class="hidden px-6 py-14 text-center">
+            <i data-lucide="inbox" class="mx-auto mb-3 h-12 w-12 text-slate-300" aria-hidden="true"></i>
+            <p id="empty-message" class="text-sm text-slate-500">No orders yet. Tap <strong class="text-slate-800">New order</strong> to start from the client budget.</p>
           </div>
         </section>
       </main>
     </div>
   </div>
 
-  <div
-    id="modal-backdrop"
-    class="modal-backdrop fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-[2px] opacity-0 pointer-events-none transition-opacity duration-300"
-    aria-hidden="true"
-  ></div>
+  <!-- Modal backdrop -->
+  <div id="modal-backdrop" class="modal-backdrop fixed inset-0 z-[90] bg-slate-900/45 opacity-0 pointer-events-none transition-opacity duration-300" aria-hidden="true"></div>
 
+  <!-- Modal -->
   <div
     id="modal-panel"
-    class="modal-panel fixed inset-0 z-[100] flex scale-95 items-end justify-center p-0 opacity-0 pointer-events-none transition-all duration-300 md:items-center md:p-4"
+    class="modal-panel fixed inset-0 z-[100] flex items-end justify-center p-0 opacity-0 pointer-events-none transition-opacity duration-300 sm:items-center sm:p-4"
     role="dialog"
     aria-modal="true"
     aria-labelledby="modal-title"
   >
-    <div
-      class="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl md:max-h-[min(90vh,720px)] md:rounded-2xl"
-    >
-      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-        <h2 id="modal-title" class="text-lg font-semibold text-slate-900">Новый заказ</h2>
-        <button type="button" id="modal-close" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors" aria-label="Закрыть">
+    <div class="flex max-h-[min(100dvh,920px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl">
+      <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div>
+          <h2 id="modal-title" class="text-lg font-semibold text-slate-900">New order</h2>
+          <p class="text-xs text-slate-500">Start with the client budget, then allocate costs.</p>
+        </div>
+        <button type="button" id="modal-close" class="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
           <i data-lucide="x" class="h-5 w-5" aria-hidden="true"></i>
         </button>
       </div>
-      <form id="order-form" class="safe-pb flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
-        <input type="hidden" id="edit-id" name="editId" value="" />
 
-        <div class="space-y-3">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Заказ</p>
-          <div>
-            <label for="order-name" class="block text-xs font-medium text-slate-600 mb-1">Название заказа</label>
-            <input type="text" id="order-name" required maxlength="160" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Например, партия платьев SS26" />
-          </div>
-          <div>
-            <label for="client-name" class="block text-xs font-medium text-slate-600 mb-1">Клиент</label>
-            <input type="text" id="client-name" required maxlength="160" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Компания или контакт" />
-          </div>
-        </div>
+      <form id="order-form" class="safe-bottom flex flex-1 flex-col overflow-y-auto overscroll-contain px-5 py-4">
+        <input type="hidden" id="edit-id" value="" />
 
-        <div class="space-y-3 pt-1">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Со стороны клиента</p>
-          <div>
-            <label for="client-budget" class="block text-xs font-medium text-slate-600 mb-1">Общий бюджет клиента (выручка)</label>
-            <input type="number" id="client-budget" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="0,00" />
+        <div class="space-y-4">
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+              <label for="order-name" class="mb-1 block text-xs font-medium text-slate-600">Order name</label>
+              <input type="text" id="order-name" required maxlength="120" class="input-field w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" placeholder="e.g. Spring coat run" />
+            </div>
+            <div class="sm:col-span-2">
+              <label for="client-name" class="mb-1 block text-xs font-medium text-slate-600">Client</label>
+              <input type="text" id="client-name" required maxlength="120" class="input-field w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" placeholder="Company or name" />
+            </div>
           </div>
-        </div>
 
-        <div class="space-y-3 pt-1">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Производство и затраты</p>
-          <div>
-            <label for="factory-name" class="block text-xs font-medium text-slate-600 mb-1">Цех / фабрика</label>
-            <input type="text" id="factory-name" required maxlength="160" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Название цеха" />
+          <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+            <label for="client-budget" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Total client budget (source)</label>
+            <div class="relative mt-1">
+              <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+              <input type="number" id="client-budget" required min="0" step="0.01" class="input-field w-full rounded-xl border border-slate-200 bg-white py-3 pl-8 pr-3 text-lg font-semibold tabular-nums" placeholder="0.00" />
+            </div>
           </div>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Distribution</p>
+          <div class="grid gap-3 sm:grid-cols-2">
             <div>
-              <label for="quantity" class="block text-xs font-medium text-slate-600 mb-1">Количество</label>
-              <input type="number" id="quantity" required min="1" step="1" class="input-field min-h-[44px] w-full rounded-lg border border-slate-200 px-3 py-2 text-base tabular-nums sm:text-sm" value="1" />
+              <label for="quantity" class="mb-1 block text-xs font-medium text-slate-600">Quantity</label>
+              <input type="number" id="quantity" required min="1" step="1" value="1" class="input-field w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm tabular-nums" />
             </div>
             <div>
-              <label for="factory-price" class="block text-xs font-medium text-slate-600 mb-1">Цена цеха за ед.</label>
-              <input type="number" id="factory-price" required min="0" step="0.01" class="input-field min-h-[44px] w-full rounded-lg border border-slate-200 px-3 py-2 text-base tabular-nums sm:text-sm" placeholder="0,00" />
+              <label for="factory-price" class="mb-1 block text-xs font-medium text-slate-600">Workshop price / unit</label>
+              <input type="number" id="factory-price" required min="0" step="0.01" class="input-field w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm tabular-nums" placeholder="0.00" />
+            </div>
+            <div class="sm:col-span-2">
+              <label for="material-costs" class="mb-1 block text-xs font-medium text-slate-600">Material costs (fabric, accessories)</label>
+              <input type="number" id="material-costs" required min="0" step="0.01" class="input-field w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm tabular-nums" placeholder="0.00" />
+            </div>
+            <div class="sm:col-span-2">
+              <label for="logistics-misc" class="mb-1 block text-xs font-medium text-slate-600">Logistics &amp; misc (fuel, overhead, etc.)</label>
+              <input type="number" id="logistics-misc" required min="0" step="0.01" class="input-field w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm tabular-nums" placeholder="0.00" />
             </div>
           </div>
-          <div>
-            <label for="material-costs" class="block text-xs font-medium text-slate-600 mb-1">Материалы (сумма)</label>
-            <input type="number" id="material-costs" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="0,00" />
+
+          <!-- Real-time budget leak bar -->
+          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-inner">
+            <div class="mb-2 flex items-center justify-between text-xs">
+              <span class="font-medium text-slate-600">Budget distribution</span>
+              <span id="remaining-label" class="tabular-nums font-semibold text-slate-900">Remaining: —</span>
+            </div>
+            <div id="budget-leak-bar" class="budget-leak-track flex h-3 overflow-hidden rounded-full bg-slate-100" role="img" aria-label="Budget distribution">
+              <div id="seg-factory" class="h-full bg-slate-600 transition-all duration-300" style="width: 0%"></div>
+              <div id="seg-materials" class="h-full bg-amber-500 transition-all duration-300" style="width: 0%"></div>
+              <div id="seg-logistics" class="h-full bg-violet-500 transition-all duration-300" style="width: 0%"></div>
+              <div id="seg-pocket" class="h-full bg-emerald-500 transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">
+              <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-slate-600"></span> Workshop</span>
+              <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-amber-500"></span> Materials</span>
+              <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-violet-500"></span> Logistics</span>
+              <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-emerald-500"></span> Your pocket</span>
+            </div>
           </div>
-          <div>
-            <label for="extra-expenses" class="block text-xs font-medium text-slate-600 mb-1">Доп. расходы</label>
-            <input type="number" id="extra-expenses" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="Доставка, налоги…" />
+
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label for="progress" class="mb-1 block text-xs font-medium text-slate-600">Progress (0–100%)</label>
+              <input type="range" id="progress" min="0" max="100" value="0" class="w-full accent-slate-900" />
+              <p class="mt-1 text-center text-xs tabular-nums text-slate-600"><span id="progress-label">0</span>%</p>
+            </div>
+            <div>
+              <label for="status" class="mb-1 block text-xs font-medium text-slate-600">Status</label>
+              <select id="status" class="input-field w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
+                <option value="Draft">Draft</option>
+                <option value="Sampling">Sampling</option>
+                <option value="Production">Production</option>
+                <option value="QC">QC</option>
+                <option value="Shipped">Shipped</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        <div class="space-y-3 pt-1">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Статус</p>
-          <div>
-            <label for="progress" class="block text-xs font-medium text-slate-600 mb-1">Прогресс (0–100%)</label>
-            <input type="range" id="progress" min="0" max="100" value="0" class="w-full h-2 rounded-lg appearance-none bg-slate-200 accent-indigo-600" />
-            <div class="flex justify-between text-xs text-slate-400 mt-1">
-              <span>0%</span>
-              <span id="progress-label" class="font-medium text-slate-700 tabular-nums">0%</span>
-              <span>100%</span>
-            </div>
-          </div>
-          <div>
-            <label for="status" class="block text-xs font-medium text-slate-600 mb-1">Этап</label>
-            <select id="status" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white">
-              <option value="Negotiation">Переговоры</option>
-              <option value="Materials">Материалы</option>
-              <option value="Cutting">Раскрой</option>
-              <option value="Sewing">Пошив</option>
-              <option value="QC">ОТК</option>
-              <option value="Finished">Готово</option>
-            </select>
-          </div>
-        </div>
+        <p id="form-error" class="mt-4 hidden rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert"></p>
 
-        <p id="form-error" class="hidden text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2" role="alert"></p>
-
-        <div class="safe-pb flex gap-3 border-t border-slate-100 pt-3 pb-4 sm:pb-3">
-          <button type="button" id="form-cancel" class="min-h-[48px] flex-1 rounded-xl border border-slate-200 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 active:scale-[0.99]">Отмена</button>
-          <button type="submit" id="form-submit" class="min-h-[48px] flex-1 rounded-xl bg-indigo-600 py-3 text-sm font-medium text-white shadow-sm transition-all hover:bg-indigo-500 active:scale-[0.99]">Сохранить</button>
+        <div class="safe-bottom mt-6 flex gap-3 border-t border-slate-100 pt-4">
+          <button type="button" id="form-cancel" class="min-h-[48px] flex-1 rounded-xl border border-slate-200 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Cancel</button>
+          <button type="submit" id="form-submit" class="min-h-[48px] flex-1 rounded-xl bg-slate-900 py-3 text-sm font-medium text-white transition hover:bg-slate-800">Save order</button>
         </div>
       </form>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="script.js" defer></script>
 </body>
 </html>

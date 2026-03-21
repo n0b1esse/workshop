@@ -1,23 +1,14 @@
 /**
- * Посредник по швейному производству — логика SPA, графики, localStorage
+ * Sewing Broker Dashboard — data layer, UI, persistence
+ * Budget = source; distribution = workshop + materials + logistics; pocket = profit.
  */
 
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "garment-broker-spa-v1";
+  const STORAGE_KEY = "sewing-broker-dashboard-v2";
 
-  /** Подписи статусов на русском (значения в данных — на англ., для совместимости) */
-  const STATUS_LABELS = {
-    Negotiation: "Переговоры",
-    Materials: "Материалы",
-    Cutting: "Раскрой",
-    Sewing: "Пошив",
-    QC: "ОТК",
-    Finished: "Готово",
-  };
-
-  /** @typedef {'Negotiation'|'Materials'|'Cutting'|'Sewing'|'QC'|'Finished'} OrderStatus */
+  /** @typedef {'Draft'|'Sampling'|'Production'|'QC'|'Shipped'} OrderStatus */
 
   /**
    * @typedef {Object} Order
@@ -25,11 +16,10 @@
    * @property {string} orderName
    * @property {string} clientName
    * @property {number} clientBudget
-   * @property {string} factoryName
    * @property {number} quantity
    * @property {number} factoryPricePerUnit
    * @property {number} materialCosts
-   * @property {number} additionalExpenses
+   * @property {number} logisticsMisc
    * @property {number} progressPercent
    * @property {OrderStatus} status
    * @property {number} createdAt
@@ -38,16 +28,14 @@
   /** @type {Order[]} */
   let orders = [];
 
-  /** @type {Record<string, Chart>} */
-  const charts = {};
+  let searchQuery = "";
 
-  const STATUS_STYLES = {
-    Negotiation: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
-    Materials: "bg-amber-50 text-amber-900 ring-1 ring-amber-200/80",
-    Cutting: "bg-sky-50 text-sky-800 ring-1 ring-sky-200/80",
-    Sewing: "bg-orange-50 text-orange-800 ring-1 ring-orange-200/80",
-    QC: "bg-violet-50 text-violet-800 ring-1 ring-violet-200/80",
-    Finished: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/80",
+  const STATUS_BADGE = {
+    Draft: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
+    Sampling: "bg-sky-50 text-sky-800 ring-1 ring-sky-200",
+    Production: "bg-amber-50 text-amber-900 ring-1 ring-amber-200/80",
+    QC: "bg-violet-50 text-violet-800 ring-1 ring-violet-200",
+    Shipped: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
   };
 
   const els = {
@@ -55,11 +43,11 @@
     cards: document.getElementById("orders-cards"),
     empty: document.getElementById("empty-state"),
     count: document.getElementById("order-count"),
+    search: document.getElementById("search-input"),
     kpiRevenue: document.getElementById("kpi-revenue"),
-    kpiCosts: document.getElementById("kpi-costs"),
+    kpiExpenses: document.getElementById("kpi-expenses"),
     kpiProfit: document.getElementById("kpi-profit"),
     kpiMargin: document.getElementById("kpi-margin"),
-    sync: document.getElementById("sync-label"),
     backdrop: document.getElementById("modal-backdrop"),
     panel: document.getElementById("modal-panel"),
     form: document.getElementById("order-form"),
@@ -67,121 +55,155 @@
     editId: document.getElementById("edit-id"),
     submit: document.getElementById("form-submit"),
     err: document.getElementById("form-error"),
+    emptyMsg: document.getElementById("empty-message"),
     progress: document.getElementById("progress"),
     progressLabel: document.getElementById("progress-label"),
+    remainingLabel: document.getElementById("remaining-label"),
+    segFactory: document.getElementById("seg-factory"),
+    segMaterials: document.getElementById("seg-materials"),
+    segLogistics: document.getElementById("seg-logistics"),
+    segPocket: document.getElementById("seg-pocket"),
   };
 
   /** @param {Order} o */
-  function metrics(o) {
-    const revenue = o.clientBudget;
-    const factoryTotal = o.quantity * o.factoryPricePerUnit;
-    const totalCosts = factoryTotal + o.materialCosts + o.additionalExpenses;
-    const grossProfit = revenue - totalCosts;
-    const netMarginPct = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
-    const markupPct = totalCosts > 0 ? (grossProfit / totalCosts) * 100 : 0;
+  function compute(o) {
+    const workshopCost = o.quantity * o.factoryPricePerUnit;
+    const materials = o.materialCosts;
+    const logistics = o.logisticsMisc || 0;
+    const totalExpenses = workshopCost + materials + logistics;
+    const profit = o.clientBudget - totalExpenses;
+    const marginPct = o.clientBudget > 0 ? (profit / o.clientBudget) * 100 : 0;
     return {
-      revenue,
-      factoryTotal,
-      totalCosts,
-      grossProfit,
-      netMarginPct,
-      markupPct,
+      workshopCost,
+      materials,
+      logistics,
+      totalExpenses,
+      profit,
+      marginPct,
     };
   }
 
+  /** Bar segment widths (% of bar) — scaled to 100% if spend + pocket exceeds budget */
+  function distributionWidths(budget, workshop, materials, logistics, profit) {
+    if (budget <= 0) return [0, 0, 0, 0];
+    const pw = (workshop / budget) * 100;
+    const pm = (materials / budget) * 100;
+    const pl = (logistics / budget) * 100;
+    const pp = profit > 0 ? (profit / budget) * 100 : 0;
+    const sum = pw + pm + pl + pp;
+    if (sum <= 100 || sum === 0) return [pw, pm, pl, pp];
+    const s = 100 / sum;
+    return [pw * s, pm * s, pl * s, pp * s];
+  }
+
   function formatMoney(n) {
-    return new Intl.NumberFormat("ru-RU", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(n);
+    const sign = n < 0 ? "−" : "";
+    return sign + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   }
 
   function formatPct(n) {
-    return n.toLocaleString("ru-RU", { maximumFractionDigits: 1 }) + "%";
+    return n.toLocaleString("en-US", { maximumFractionDigits: 1 }) + "%";
   }
 
-  /** Склонение: «N заказов» */
-  function formatOrderCount(n) {
-    const mod10 = n % 10;
-    const mod100 = n % 100;
-    if (mod10 === 1 && mod100 !== 11) return n + " заказ";
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return n + " заказа";
-    return n + " заказов";
-  }
-
-  /** @param {string} key */
-  function statusLabel(key) {
-    return STATUS_LABELS[/** @type {keyof typeof STATUS_LABELS} */ (key)] || key;
-  }
-
-  /** Net margin color classes for table */
-  function marginClass(m) {
-    if (m < 0) return "text-red-600 font-semibold bg-red-50 px-2 py-0.5 rounded-md";
-    if (m > 20) return "text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md";
-    if (m < 10) return "text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-md";
-    return "text-slate-700 font-medium bg-slate-100 px-2 py-0.5 rounded-md";
+  function profitClass(marginPct) {
+    if (marginPct < 10) return "profit-warn tabular-nums";
+    if (marginPct > 20) return "profit-ok tabular-nums";
+    return "font-semibold tabular-nums text-slate-800";
   }
 
   function load() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const p = JSON.parse(raw);
-        if (Array.isArray(p)) orders = p;
-      }
+      if (!raw) return;
+      const p = JSON.parse(raw);
+      if (Array.isArray(p)) orders = p.map(normalizeOrder);
     } catch (e) {
       console.warn("Load failed", e);
     }
   }
 
+  /** @param {Partial<Order>} o */
+  function normalizeOrder(o) {
+    return {
+      ...o,
+      logisticsMisc: typeof o.logisticsMisc === "number" ? o.logisticsMisc : 0,
+    };
+  }
+
   function save() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-      if (els.sync) {
-        els.sync.textContent = "Сохранено";
-        els.sync.className = "text-emerald-400/90";
-      }
-    } catch (e) {
-      if (els.sync) {
-        els.sync.textContent = "Ошибка";
-        els.sync.className = "text-amber-400";
-      }
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
   }
 
   function refreshIcons() {
-    if (typeof lucide !== "undefined" && lucide.createIcons) {
-      lucide.createIcons();
-    }
+    if (typeof lucide !== "undefined" && lucide.createIcons) lucide.createIcons();
   }
 
-  function updateKpis() {
-    let sumRev = 0;
-    let sumCost = 0;
-    let sumProfit = 0;
-    orders.forEach((o) => {
-      const m = metrics(o);
-      sumRev += m.revenue;
-      sumCost += m.totalCosts;
-      sumProfit += m.grossProfit;
+  function getFilteredOrders() {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return orders;
+    return orders.filter((o) => {
+      return (
+        o.orderName.toLowerCase().includes(q) ||
+        o.clientName.toLowerCase().includes(q)
+      );
     });
-    const blendedMargin = sumRev > 0 ? (sumProfit / sumRev) * 100 : 0;
+  }
 
-    els.kpiRevenue.textContent = formatMoney(sumRev);
-    els.kpiCosts.textContent = formatMoney(sumCost);
-    els.kpiProfit.textContent = formatMoney(sumProfit);
-    els.kpiProfit.className =
-      "mt-2 text-lg font-bold tabular-nums sm:mt-3 sm:text-2xl lg:text-3xl " +
-      (sumProfit >= 0 ? "text-emerald-600" : "text-red-600");
-    els.kpiMargin.textContent = formatPct(blendedMargin);
-    els.kpiMargin.className =
-      "mt-2 text-lg font-bold tabular-nums sm:mt-3 sm:text-2xl lg:text-3xl " +
-      (blendedMargin >= 0 ? "text-violet-700" : "text-red-600");
+  /** Summary cards reflect all orders; search only filters the list below. */
+  function updateKpis() {
+    let rev = 0;
+    let exp = 0;
+    let prof = 0;
+    orders.forEach((o) => {
+      const c = compute(o);
+      rev += o.clientBudget;
+      exp += c.totalExpenses;
+      prof += c.profit;
+    });
+    const avgMargin = rev > 0 ? (prof / rev) * 100 : 0;
 
-    const n = orders.length;
-    els.count.textContent = formatOrderCount(n);
+    els.kpiRevenue.textContent = formatMoney(rev);
+    els.kpiExpenses.textContent = formatMoney(exp);
+    els.kpiProfit.textContent = formatMoney(prof);
+    els.kpiMargin.textContent = formatPct(avgMargin);
+
+    const filtered = getFilteredOrders();
+    const n = filtered.length;
+    const total = orders.length;
+    els.count.textContent =
+      searchQuery.trim() && n !== total
+        ? n + " of " + total + " shown"
+        : n === 1
+          ? "1 order"
+          : n + " orders";
+  }
+
+  function updateBudgetLeakFromForm() {
+    const budget = parseFloat(document.getElementById("client-budget").value) || 0;
+    const qty = parseInt(document.getElementById("quantity").value, 10) || 0;
+    const fp = parseFloat(document.getElementById("factory-price").value) || 0;
+    const mat = parseFloat(document.getElementById("material-costs").value) || 0;
+    const log = parseFloat(document.getElementById("logistics-misc").value) || 0;
+
+    const workshop = qty * fp;
+    const profit = budget - (workshop + mat + log);
+    const [w, m, l, p] = distributionWidths(budget, workshop, mat, log, profit);
+
+    els.segFactory.style.width = w + "%";
+    els.segMaterials.style.width = m + "%";
+    els.segLogistics.style.width = l + "%";
+    els.segPocket.style.width = p + "%";
+
+    if (budget <= 0) {
+      els.remainingLabel.textContent = "Remaining: —";
+      els.remainingLabel.className = "tabular-nums font-semibold text-slate-900";
+      return;
+    }
+    els.remainingLabel.textContent = "Remaining: " + formatMoney(profit) + " (" + formatPct((profit / budget) * 100) + ")";
+    els.remainingLabel.className =
+      profit < 0
+        ? "tabular-nums font-semibold text-red-600"
+        : "tabular-nums font-semibold text-emerald-700";
   }
 
   function escapeHtml(s) {
@@ -190,245 +212,146 @@
     return d.innerHTML;
   }
 
-  function destroyChart(id) {
-    if (charts[id]) {
-      charts[id].destroy();
-      delete charts[id];
-    }
-  }
-
-  /** @param {Order} o */
-  function renderPie(o) {
-    const id = o.id;
-    const mobOpen = document.getElementById("ex-mob-" + id)?.classList.contains("is-open");
-    const canvas = mobOpen
-      ? document.getElementById("chart-mob-" + id)
-      : document.getElementById("chart-" + id);
-    if (!canvas || typeof Chart === "undefined") return;
-
-    destroyChart(id);
-    const m = metrics(o);
-    const mat = Math.max(0, o.materialCosts);
-    const fac = Math.max(0, m.factoryTotal);
-    const prof = m.grossProfit;
-
-    const note = canvas.closest(".chart-box")?.querySelector(".chart-note");
-    if (note) {
-      if (prof < 0) {
-        note.textContent = "Отрицательная прибыль — затраты выше бюджета клиента.";
-        note.classList.remove("hidden");
-      } else {
-        note.textContent = "";
-        note.classList.add("hidden");
-      }
-    }
-
-    const profitSlice = Math.max(0, prof);
-    const data = [mat, fac, profitSlice];
-    const labels = ["Материалы", "Цех", "Прибыль"];
-
-    charts[id] = new Chart(canvas, {
-      type: "pie",
-      data: {
-        labels,
-        datasets: [
-          {
-            data,
-            backgroundColor: ["rgb(245 158 11)", "rgb(71 85 105)", "rgb(16 185 129)"],
-            borderWidth: 2,
-            borderColor: "#fff",
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: {
-              boxWidth: 12,
-              padding: 10,
-              font: { size: 11, family: "Inter, system-ui, sans-serif" },
-            },
-          },
-          tooltip: {
-            callbacks: {
-              label(ctx) {
-                const v = ctx.raw;
-                const i = ctx.dataIndex;
-                if (i === 2 && m.grossProfit < 0) {
-                  return "Прибыль: " + formatMoney(m.grossProfit);
-                }
-                return (ctx.label || "") + ": " + formatMoney(typeof v === "number" ? v : 0);
-              },
-            },
-          },
-          title: {
-            display: true,
-            text: "Структура затрат",
-            font: { size: 12, weight: "600" },
-            color: "#64748b",
-            padding: { bottom: 8 },
-          },
-        },
-      },
+  /** Animate progress fills after paint */
+  function animateProgressBars() {
+    requestAnimationFrame(() => {
+      document.querySelectorAll("[data-progress-target]").forEach((el) => {
+        const t = parseFloat(el.getAttribute("data-progress-target") || "0");
+        el.style.width = Math.min(100, Math.max(0, t)) + "%";
+      });
     });
   }
 
   function renderTable() {
-    els.body.innerHTML = "";
+    if (els.body) els.body.innerHTML = "";
     if (els.cards) els.cards.innerHTML = "";
-    if (orders.length === 0) {
+
+    const list = [...getFilteredOrders()].sort((a, b) => b.createdAt - a.createdAt);
+
+    if (list.length === 0) {
       els.empty.classList.remove("hidden");
+      if (els.emptyMsg) {
+        els.emptyMsg.innerHTML =
+          orders.length === 0
+            ? 'No orders yet. Tap <strong class="text-slate-800">New order</strong> to start from the client budget.'
+            : "No orders match your search. Try another name or clear the search box.";
+      }
+      updateKpis();
       refreshIcons();
       return;
     }
     els.empty.classList.add("hidden");
 
-    const sorted = [...orders].sort((a, b) => b.createdAt - a.createdAt);
-
-    sorted.forEach((o) => {
-      const m = metrics(o);
+    list.forEach((o, idx) => {
+      const c = compute(o);
       const pct = Math.min(100, Math.max(0, o.progressPercent));
-      const stClass = STATUS_STYLES[o.status] || STATUS_STYLES.Negotiation;
-      const marginCls = marginClass(m.netMarginPct);
-      const stText = statusLabel(o.status);
+      const badge = STATUS_BADGE[o.status] || STATUS_BADGE.Draft;
+      const pCls = profitClass(c.marginPct);
 
-      const tr = document.createElement("tr");
-      tr.className = "order-row border-slate-100";
-      tr.innerHTML = `
-        <td class="px-4 sm:px-6 py-3 align-top">
-          <button type="button" class="expand-btn text-left font-medium text-slate-900 hover:text-indigo-700 flex items-start gap-2 group" data-id="${o.id}" aria-expanded="false">
-            <i data-lucide="chevron-right" class="h-4 w-4 mt-0.5 text-slate-400 transition-transform duration-300 shrink-0 icon-chevron" aria-hidden="true"></i>
-            <span>
-              <span class="block">${escapeHtml(o.orderName)}</span>
-              <span class="text-xs font-normal text-slate-500">${escapeHtml(o.clientName)}</span>
-            </span>
-          </button>
-        </td>
-        <td class="px-4 py-3 text-slate-600 align-top">${escapeHtml(o.factoryName)}</td>
-        <td class="px-4 py-3 tabular-nums font-medium text-slate-800 align-top">${formatMoney(m.revenue)}</td>
-        <td class="px-4 py-3 tabular-nums text-slate-600 align-top">${formatMoney(m.totalCosts)}</td>
-        <td class="px-4 py-3 tabular-nums font-semibold align-top ${m.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(m.grossProfit)}</td>
-        <td class="px-4 py-3 align-top"><span class="inline-block text-sm tabular-nums ${marginCls}">${formatPct(m.netMarginPct)}</span></td>
-        <td class="px-4 py-3 align-top">
-          <div class="progress-track" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
-            <div class="progress-fill" style="width:${pct}%"></div>
-          </div>
-          <span class="text-[10px] text-slate-400 mt-1 block tabular-nums">${pct}% · ${escapeHtml(stText)}</span>
-        </td>
-        <td class="px-4 py-3 align-top">
-          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${stClass}">${escapeHtml(stText)}</span>
-        </td>
-        <td class="px-4 py-3 text-right align-top whitespace-nowrap space-x-1">
-          <button type="button" class="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50" data-act="edit" data-id="${o.id}">
-            <i data-lucide="pencil" class="h-3.5 w-3.5" aria-hidden="true"></i> Изменить
-          </button>
-          <button type="button" class="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" data-act="del" data-id="${o.id}">
-            <i data-lucide="trash-2" class="h-3.5 w-3.5" aria-hidden="true"></i> Удалить
-          </button>
-        </td>
-      `;
+      if (els.body) {
+        const tr = document.createElement("tr");
+        tr.className = "order-row row-enter border-slate-100";
+        tr.style.animationDelay = idx * 0.04 + "s";
+        tr.innerHTML = `
+          <td class="px-5 py-3">
+            <button type="button" class="expand-btn flex items-start gap-2 text-left font-medium text-slate-900 hover:text-slate-700" data-id="${o.id}" aria-expanded="false">
+              <i data-lucide="chevron-right" class="icon-chevron mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform" aria-hidden="true"></i>
+              <span>${escapeHtml(o.orderName)}</span>
+            </button>
+          </td>
+          <td class="px-5 py-3 text-slate-600">${escapeHtml(o.clientName)}</td>
+          <td class="px-5 py-3 ${pCls}">${formatMoney(c.profit)}</td>
+          <td class="px-5 py-3">
+            <div class="progress-bar-bg" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-bar-fill" data-progress-target="${pct}" style="width:0%"></div>
+            </div>
+          </td>
+          <td class="px-5 py-3">
+            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badge}">${escapeHtml(o.status)}</span>
+          </td>
+          <td class="px-5 py-3 text-right whitespace-nowrap">
+            <button type="button" class="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100" data-act="edit" data-id="${o.id}">Edit</button>
+            <button type="button" class="rounded-lg px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" data-act="del" data-id="${o.id}">Delete</button>
+          </td>
+        `;
 
-      const trExp = document.createElement("tr");
-      trExp.className = "bg-slate-50/80";
-      trExp.innerHTML = `
-        <td colspan="9" class="p-0 border-0">
-          <div class="order-expand" id="ex-${o.id}">
-            <div class="order-expand-inner">
-              <div class="px-4 sm:px-6 py-6 border-t border-slate-100 grid lg:grid-cols-2 gap-8 items-start">
-                <div class="text-sm space-y-3">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Финансы по заказу</p>
-                  <dl class="grid grid-cols-2 gap-x-4 gap-y-2 max-w-md">
-                    <dt class="text-slate-500">Выручка (клиент)</dt><dd class="text-right tabular-nums font-medium">${formatMoney(m.revenue)}</dd>
-                    <dt class="text-slate-500">Цех (кол-во × цена)</dt><dd class="text-right tabular-nums">${formatMoney(m.factoryTotal)}</dd>
-                    <dt class="text-slate-500">Материалы</dt><dd class="text-right tabular-nums">${formatMoney(o.materialCosts)}</dd>
-                    <dt class="text-slate-500">Доп. расходы</dt><dd class="text-right tabular-nums">${formatMoney(o.additionalExpenses)}</dd>
-                    <dt class="text-slate-500">Затраты всего</dt><dd class="text-right tabular-nums font-medium">${formatMoney(m.totalCosts)}</dd>
-                    <dt class="text-slate-500">Валовая прибыль</dt><dd class="text-right tabular-nums font-semibold ${m.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(m.grossProfit)}</dd>
-                    <dt class="text-slate-500">Чистая маржа</dt><dd class="text-right tabular-nums"><span class="inline-block text-sm ${marginCls}">${formatPct(m.netMarginPct)}</span></dd>
-                    <dt class="text-slate-500">Наценка</dt><dd class="text-right tabular-nums text-slate-700">${formatPct(m.markupPct)}</dd>
-                  </dl>
-                </div>
-                <div class="chart-box">
-                  <canvas id="chart-${o.id}" height="220" aria-label="Диаграмма структуры затрат"></canvas>
-                  <p class="chart-note hidden text-xs text-center text-red-600 mt-2"></p>
+        const trExp = document.createElement("tr");
+        trExp.className = "bg-slate-50/90";
+        trExp.innerHTML = `
+          <td colspan="6" class="p-0">
+            <div class="order-expand" id="ex-${o.id}">
+              <div class="order-expand-inner">
+                <div class="border-t border-slate-100 px-5 py-5">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Where the budget went</p>
+                  <div class="mt-4 grid gap-4 sm:grid-cols-3">
+                    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <p class="text-[10px] font-semibold uppercase text-slate-400">Workshop</p>
+                      <p class="mt-1 text-lg font-bold tabular-nums text-slate-900">${formatMoney(c.workshopCost)}</p>
+                      <p class="mt-1 text-xs text-slate-500">${formatPct(o.clientBudget > 0 ? (c.workshopCost / o.clientBudget) * 100 : 0)} of budget</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <p class="text-[10px] font-semibold uppercase text-slate-400">Materials</p>
+                      <p class="mt-1 text-lg font-bold tabular-nums text-amber-700">${formatMoney(c.materials)}</p>
+                      <p class="mt-1 text-xs text-slate-500">${formatPct(o.clientBudget > 0 ? (c.materials / o.clientBudget) * 100 : 0)} of budget</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <p class="text-[10px] font-semibold uppercase text-slate-400">Your pocket</p>
+                      <p class="mt-1 text-lg font-bold tabular-nums ${c.profit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(c.profit)}</p>
+                      <p class="mt-1 text-xs text-slate-500">Net after workshop + materials + logistics</p>
+                    </div>
+                  </div>
+                  <div class="mt-4 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-600">
+                    Logistics &amp; misc: <strong class="tabular-nums text-slate-800">${formatMoney(c.logistics)}</strong>
+                    · Margin: <strong class="${c.marginPct < 10 ? "text-red-600" : c.marginPct > 20 ? "text-emerald-600" : "text-slate-800"}">${formatPct(c.marginPct)}</strong>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </td>
-      `;
-
-      els.body.appendChild(tr);
-      els.body.appendChild(trExp);
+          </td>
+        `;
+        els.body.appendChild(tr);
+        els.body.appendChild(trExp);
+      }
 
       if (els.cards) {
         const card = document.createElement("div");
-        card.className =
-          "order-card-mob rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-4";
+        card.className = "order-card-mob card-enter rounded-2xl border border-slate-200 bg-white p-4 shadow-sm";
+        card.style.animationDelay = idx * 0.04 + "s";
         card.innerHTML = `
           <button type="button" class="expand-btn flex w-full items-start gap-2 text-left" data-id="${o.id}" aria-expanded="false">
-            <i data-lucide="chevron-right" class="icon-chevron mt-0.5 h-5 w-5 shrink-0 text-slate-400 transition-transform duration-300" aria-hidden="true"></i>
+            <i data-lucide="chevron-right" class="icon-chevron mt-0.5 h-5 w-5 shrink-0 text-slate-400" aria-hidden="true"></i>
             <span class="min-w-0 flex-1">
               <span class="block font-semibold text-slate-900">${escapeHtml(o.orderName)}</span>
-              <span class="mt-0.5 block text-xs text-slate-500">${escapeHtml(o.clientName)} · ${escapeHtml(o.factoryName)}</span>
+              <span class="text-xs text-slate-500">${escapeHtml(o.clientName)}</span>
             </span>
           </button>
-          <div class="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p class="text-[10px] uppercase tracking-wide text-slate-400">Выручка</p>
-              <p class="mt-0.5 font-semibold tabular-nums text-slate-900">${formatMoney(m.revenue)}</p>
-            </div>
-            <div>
-              <p class="text-[10px] uppercase tracking-wide text-slate-400">Затраты</p>
-              <p class="mt-0.5 font-medium tabular-nums text-slate-700">${formatMoney(m.totalCosts)}</p>
-            </div>
-            <div>
-              <p class="text-[10px] uppercase tracking-wide text-slate-400">Прибыль</p>
-              <p class="mt-0.5 font-semibold tabular-nums ${m.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(m.grossProfit)}</p>
-            </div>
-            <div>
-              <p class="text-[10px] uppercase tracking-wide text-slate-400">Маржа</p>
-              <p class="mt-0.5"><span class="inline-block text-sm tabular-nums ${marginCls}">${formatPct(m.netMarginPct)}</span></p>
+          <div class="mt-3 flex items-center justify-between gap-2">
+            <span class="text-[10px] uppercase text-slate-400">Profit</span>
+            <span class="text-base ${pCls}">${formatMoney(c.profit)}</span>
+          </div>
+          <div class="mt-2">
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" data-progress-target="${pct}" style="width:0%"></div>
             </div>
           </div>
-          <div class="mt-3">
-            <div class="progress-track h-2" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
-              <div class="progress-fill" style="width:${pct}%"></div>
+          <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badge}">${escapeHtml(o.status)}</span>
+            <div class="flex gap-1">
+              <button type="button" class="rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100" data-act="edit" data-id="${o.id}">Edit</button>
+              <button type="button" class="rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50" data-act="del" data-id="${o.id}">Delete</button>
             </div>
-            <p class="mt-1 text-[11px] text-slate-400 tabular-nums">${pct}% · ${escapeHtml(stText)}</p>
-          </div>
-          <div class="mt-3 flex flex-wrap items-center gap-2">
-            <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${stClass}">${escapeHtml(stText)}</span>
-          </div>
-          <div class="mt-3 grid grid-cols-2 gap-2">
-            <button type="button" class="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 py-2 text-sm font-medium text-indigo-700 active:bg-indigo-100" data-act="edit" data-id="${o.id}">
-              <i data-lucide="pencil" class="h-4 w-4" aria-hidden="true"></i> Изменить
-            </button>
-            <button type="button" class="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 py-2 text-sm font-medium text-red-700 active:bg-red-100" data-act="del" data-id="${o.id}">
-              <i data-lucide="trash-2" class="h-4 w-4" aria-hidden="true"></i> Удалить
-            </button>
           </div>
           <div class="order-expand mt-3" id="ex-mob-${o.id}">
             <div class="order-expand-inner">
-              <div class="rounded-xl border border-slate-100 bg-slate-50/90 p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Финансы по заказу</p>
-                <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-                  <dt class="text-slate-500">Выручка (клиент)</dt><dd class="text-right tabular-nums font-medium">${formatMoney(m.revenue)}</dd>
-                  <dt class="text-slate-500">Цех (кол-во × цена)</dt><dd class="text-right tabular-nums">${formatMoney(m.factoryTotal)}</dd>
-                  <dt class="text-slate-500">Материалы</dt><dd class="text-right tabular-nums">${formatMoney(o.materialCosts)}</dd>
-                  <dt class="text-slate-500">Доп. расходы</dt><dd class="text-right tabular-nums">${formatMoney(o.additionalExpenses)}</dd>
-                  <dt class="text-slate-500">Затраты всего</dt><dd class="text-right tabular-nums font-medium">${formatMoney(m.totalCosts)}</dd>
-                  <dt class="text-slate-500">Валовая прибыль</dt><dd class="text-right tabular-nums font-semibold ${m.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(m.grossProfit)}</dd>
-                  <dt class="text-slate-500">Чистая маржа</dt><dd class="text-right"><span class="inline-block text-sm ${marginCls}">${formatPct(m.netMarginPct)}</span></dd>
-                  <dt class="text-slate-500">Наценка</dt><dd class="text-right tabular-nums text-slate-700">${formatPct(m.markupPct)}</dd>
-                </dl>
-                <div class="chart-box mt-4 w-full">
-                  <canvas id="chart-mob-${o.id}" height="200" aria-label="Диаграмма структуры затрат"></canvas>
-                  <p class="chart-note mt-2 hidden text-center text-xs text-red-600"></p>
-                </div>
+              <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <p class="text-xs font-semibold uppercase text-slate-500">Where the budget went</p>
+                <ul class="mt-3 space-y-2 text-sm">
+                  <li class="flex justify-between"><span class="text-slate-500">Workshop</span><span class="font-medium tabular-nums">${formatMoney(c.workshopCost)}</span></li>
+                  <li class="flex justify-between"><span class="text-slate-500">Materials</span><span class="font-medium tabular-nums">${formatMoney(c.materials)}</span></li>
+                  <li class="flex justify-between"><span class="text-slate-500">Logistics &amp; misc</span><span class="font-medium tabular-nums">${formatMoney(c.logistics)}</span></li>
+                  <li class="flex justify-between border-t border-slate-200 pt-2 font-semibold"><span class="text-slate-700">Your pocket</span><span class="${c.profit >= 0 ? "text-emerald-600" : "text-red-600"} tabular-nums">${formatMoney(c.profit)}</span></li>
+                </ul>
+                <p class="mt-2 text-xs text-slate-500">Margin ${formatPct(c.marginPct)} · ${formatPct(o.clientBudget > 0 ? (c.workshopCost / o.clientBudget) * 100 : 0)} workshop / budget</p>
               </div>
             </div>
           </div>
@@ -437,11 +360,13 @@
       }
     });
 
-    bindRows();
+    bindRowEvents();
+    updateKpis();
     refreshIcons();
+    animateProgressBars();
   }
 
-  function bindRows() {
+  function bindRowEvents() {
     document.querySelectorAll(".expand-btn").forEach((btn) => {
       btn.addEventListener("click", onExpand);
     });
@@ -459,7 +384,6 @@
     });
   }
 
-  /** @param {Event} e */
   function onExpand(e) {
     const btn = e.currentTarget;
     const id = btn.getAttribute("data-id");
@@ -469,73 +393,37 @@
     if (!wrap) return;
     const chev = btn.querySelector(".icon-chevron");
     const open = wrap.classList.contains("is-open");
-
     if (open) {
       wrap.classList.remove("is-open");
       btn.setAttribute("aria-expanded", "false");
       if (chev) chev.style.transform = "rotate(0deg)";
-      destroyChart(id);
     } else {
       wrap.classList.add("is-open");
       btn.setAttribute("aria-expanded", "true");
       if (chev) chev.style.transform = "rotate(90deg)";
-      const order = orders.find((x) => x.id === id);
-      if (order) requestAnimationFrame(() => renderPie(order));
     }
   }
 
   function openModal(isEdit) {
-    closeSidebarUi();
     els.backdrop.classList.add("is-open");
     els.backdrop.setAttribute("aria-hidden", "false");
     els.panel.classList.add("is-open");
-    els.panel.classList.remove("scale-95", "opacity-0", "pointer-events-none");
-    els.panel.classList.add("scale-100", "opacity-100", "pointer-events-auto");
-    els.title.textContent = isEdit ? "Редактировать заказ" : "Новый заказ";
-    els.submit.textContent = isEdit ? "Обновить" : "Сохранить";
-    document.body.classList.add("sidebar-lock");
+    els.panel.classList.remove("opacity-0", "pointer-events-none");
+    els.panel.classList.add("opacity-100", "pointer-events-auto");
+    els.title.textContent = isEdit ? "Edit order" : "New order";
+    els.submit.textContent = isEdit ? "Update" : "Save order";
+    document.body.style.overflow = "hidden";
+    updateBudgetLeakFromForm();
     refreshIcons();
   }
 
   function closeModal() {
     els.backdrop.classList.remove("is-open");
     els.backdrop.setAttribute("aria-hidden", "true");
-    els.panel.classList.remove("is-open", "scale-100", "opacity-100", "pointer-events-auto");
-    els.panel.classList.add("scale-95", "opacity-0", "pointer-events-none");
-    document.body.classList.remove("sidebar-lock");
+    els.panel.classList.remove("is-open", "opacity-100", "pointer-events-auto");
+    els.panel.classList.add("opacity-0", "pointer-events-none");
+    document.body.style.overflow = "";
     hideErr();
-  }
-
-  function closeSidebarUi() {
-    const sidebar = document.getElementById("sidebar");
-    const sbBackdrop = document.getElementById("sidebar-backdrop");
-    const menuBtn = document.getElementById("btn-menu");
-    if (sidebar) sidebar.classList.remove("is-open");
-    if (sbBackdrop) {
-      sbBackdrop.classList.remove("is-open");
-      sbBackdrop.setAttribute("aria-hidden", "true");
-    }
-    if (menuBtn) menuBtn.setAttribute("aria-expanded", "false");
-    if (window.innerWidth < 1024) document.body.classList.remove("sidebar-lock");
-  }
-
-  function openSidebarUi() {
-    const sidebar = document.getElementById("sidebar");
-    const sbBackdrop = document.getElementById("sidebar-backdrop");
-    const menuBtn = document.getElementById("btn-menu");
-    if (sidebar) sidebar.classList.add("is-open");
-    if (sbBackdrop) {
-      sbBackdrop.classList.add("is-open");
-      sbBackdrop.setAttribute("aria-hidden", "false");
-    }
-    if (menuBtn) menuBtn.setAttribute("aria-expanded", "true");
-    if (window.innerWidth < 1024) document.body.classList.add("sidebar-lock");
-  }
-
-  function toggleSidebarUi() {
-    const sidebar = document.getElementById("sidebar");
-    if (sidebar && sidebar.classList.contains("is-open")) closeSidebarUi();
-    else openSidebarUi();
   }
 
   function hideErr() {
@@ -551,12 +439,12 @@
   function openNew() {
     els.form.reset();
     els.editId.value = "";
-    els.progress.value = "0";
-    els.progressLabel.textContent = "0%";
+    document.getElementById("quantity").value = "1";
+    document.getElementById("progress").value = "0";
+    els.progressLabel.textContent = "0";
     openModal(false);
   }
 
-  /** @param {string|null} id */
   function openEdit(id) {
     const o = orders.find((x) => x.id === id);
     if (!o) return;
@@ -564,28 +452,23 @@
     document.getElementById("order-name").value = o.orderName;
     document.getElementById("client-name").value = o.clientName;
     document.getElementById("client-budget").value = String(o.clientBudget);
-    document.getElementById("factory-name").value = o.factoryName;
     document.getElementById("quantity").value = String(o.quantity);
     document.getElementById("factory-price").value = String(o.factoryPricePerUnit);
     document.getElementById("material-costs").value = String(o.materialCosts);
-    document.getElementById("extra-expenses").value = String(o.additionalExpenses);
+    document.getElementById("logistics-misc").value = String(o.logisticsMisc ?? 0);
     document.getElementById("progress").value = String(o.progressPercent);
     document.getElementById("status").value = o.status;
-    els.progressLabel.textContent = o.progressPercent + "%";
+    els.progressLabel.textContent = String(o.progressPercent);
     openModal(true);
   }
 
-  /** @param {string|null} id */
   function removeOrder(id) {
-    if (!id || !confirm("Удалить этот заказ?")) return;
-    destroyChart(id);
+    if (!id || !confirm("Delete this order?")) return;
     orders = orders.filter((o) => o.id !== id);
     save();
-    updateKpis();
     renderTable();
   }
 
-  /** @param {Event} e */
   function onSubmit(e) {
     e.preventDefault();
     hideErr();
@@ -593,38 +476,33 @@
     const orderName = document.getElementById("order-name").value.trim();
     const clientName = document.getElementById("client-name").value.trim();
     const clientBudget = parseFloat(document.getElementById("client-budget").value);
-    const factoryName = document.getElementById("factory-name").value.trim();
     const quantity = parseInt(document.getElementById("quantity").value, 10);
     const factoryPrice = parseFloat(document.getElementById("factory-price").value);
     const materialCosts = parseFloat(document.getElementById("material-costs").value);
-    const extra = parseFloat(document.getElementById("extra-expenses").value);
+    const logisticsMisc = parseFloat(document.getElementById("logistics-misc").value);
     const progressPercent = parseInt(els.progress.value, 10);
     /** @type {OrderStatus} */
     const status = document.getElementById("status").value;
     const edit = els.editId.value.trim();
 
     if (!orderName || !clientName) {
-      showErr("Укажите название заказа и клиента.");
+      showErr("Order name and client are required.");
       return;
     }
     if (Number.isNaN(clientBudget) || clientBudget < 0) {
-      showErr("Бюджет клиента должен быть неотрицательным числом.");
-      return;
-    }
-    if (!factoryName) {
-      showErr("Укажите название цеха или фабрики.");
+      showErr("Enter a valid client budget.");
       return;
     }
     if (Number.isNaN(quantity) || quantity < 1) {
-      showErr("Количество не меньше 1.");
+      showErr("Quantity must be at least 1.");
       return;
     }
     if (Number.isNaN(factoryPrice) || factoryPrice < 0) {
-      showErr("Укажите корректную цену цеха за единицу.");
+      showErr("Workshop price per unit must be valid.");
       return;
     }
-    if (Number.isNaN(materialCosts) || materialCosts < 0 || Number.isNaN(extra) || extra < 0) {
-      showErr("Материалы и доп. расходы — неотрицательные числа.");
+    if (Number.isNaN(materialCosts) || materialCosts < 0 || Number.isNaN(logisticsMisc) || logisticsMisc < 0) {
+      showErr("Material and logistics costs must be non-negative.");
       return;
     }
 
@@ -632,11 +510,10 @@
       orderName,
       clientName,
       clientBudget,
-      factoryName,
       quantity,
       factoryPricePerUnit: factoryPrice,
       materialCosts,
-      additionalExpenses: extra,
+      logisticsMisc,
       progressPercent: Math.min(100, Math.max(0, Number.isNaN(progressPercent) ? 0 : progressPercent)),
       status,
     };
@@ -654,45 +531,40 @@
     }
 
     save();
-    updateKpis();
-    renderTable();
     closeModal();
+    renderTable();
   }
 
-  function onProgressInput() {
-    els.progressLabel.textContent = els.progress.value + "%";
+  function onSearchInput() {
+    searchQuery = els.search.value;
+    renderTable();
+  }
+
+  function wireBudgetLeakInputs() {
+    const ids = ["client-budget", "quantity", "factory-price", "material-costs", "logistics-misc"];
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("input", updateBudgetLeakFromForm);
+    });
   }
 
   function init() {
     load();
-    updateKpis();
     renderTable();
-    refreshIcons();
 
     document.getElementById("btn-new-order").addEventListener("click", openNew);
     document.getElementById("modal-close").addEventListener("click", closeModal);
     document.getElementById("form-cancel").addEventListener("click", closeModal);
     els.backdrop.addEventListener("click", closeModal);
     els.form.addEventListener("submit", onSubmit);
-    els.progress.addEventListener("input", onProgressInput);
+    els.search.addEventListener("input", onSearchInput);
+    els.progress.addEventListener("input", () => {
+      els.progressLabel.textContent = els.progress.value;
+    });
+    wireBudgetLeakInputs();
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        if (els.panel.classList.contains("is-open")) closeModal();
-        else closeSidebarUi();
-      }
-    });
-
-    const btnMenu = document.getElementById("btn-menu");
-    const sbBackdrop = document.getElementById("sidebar-backdrop");
-    if (btnMenu) btnMenu.addEventListener("click", toggleSidebarUi);
-    if (sbBackdrop) sbBackdrop.addEventListener("click", closeSidebarUi);
-
-    document.querySelectorAll("#sidebar .nav-link").forEach((link) => {
-      link.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        closeSidebarUi();
-      });
+      if (e.key === "Escape" && els.panel.classList.contains("is-open")) closeModal();
     });
   }
 

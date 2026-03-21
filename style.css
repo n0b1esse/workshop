@@ -1,9 +1,9 @@
 /**
- * Garment broker SPA — complements Tailwind
+ * Sewing Broker Dashboard — motion & polish
  */
 
 :root {
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html {
@@ -14,66 +14,33 @@ body {
   font-feature-settings: "tnum" 1, "lnum" 1;
 }
 
-body.sidebar-lock {
-  overflow: hidden;
-  touch-action: none;
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
 }
 
-/* Мобильный drawer: открытие поверх контента */
-@media (max-width: 1023px) {
-  #sidebar.is-open {
-    transform: translate3d(0, 0, 0);
-    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.2);
-  }
-}
-
-.sidebar-backdrop.is-open {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* Нижний отступ под iPhone home indicator */
-.safe-pb {
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
-}
-
-/* Карточка заказа (телефон) */
-.order-card-mob {
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.order-card-mob:active {
-  transform: scale(0.995);
-}
-
-/* Sidebar subtle gradient */
-.sidebar {
-  background: linear-gradient(180deg, #0f172a 0%, #0c1222 100%);
-}
-
-/* KPI stagger */
+/* KPI entrance */
 .kpi-card {
   opacity: 0;
-  animation: kpiIn 0.5s var(--ease-out) forwards;
+  animation: kpiEnter 0.45s var(--ease-out) forwards;
 }
 
 .kpi-card:nth-child(1) {
-  animation-delay: 0.04s;
+  animation-delay: 0.03s;
 }
 .kpi-card:nth-child(2) {
-  animation-delay: 0.08s;
+  animation-delay: 0.06s;
 }
 .kpi-card:nth-child(3) {
-  animation-delay: 0.12s;
+  animation-delay: 0.09s;
 }
 .kpi-card:nth-child(4) {
-  animation-delay: 0.16s;
+  animation-delay: 0.12s;
 }
 
-@keyframes kpiIn {
+@keyframes kpiEnter {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -87,28 +54,67 @@ body.sidebar-lock {
   pointer-events: auto;
 }
 
+.modal-panel.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
 
-/* Form inputs */
-.input-field {
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+.modal-panel {
+  transform: translateY(12px);
+  transition:
+    opacity 0.25s ease,
+    transform 0.35s var(--ease-out);
+}
+
+.modal-panel.is-open {
+  transform: translateY(0);
+}
+
+@media (min-width: 640px) {
+  .modal-panel {
+    transform: scale(0.96);
+  }
+  .modal-panel.is-open {
+    transform: scale(1);
+  }
 }
 
 .input-field:focus {
   outline: none;
-  border-color: rgb(99 102 241);
-  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.15);
+  border-color: rgb(15 23 42);
+  box-shadow: 0 0 0 3px rgb(15 23 42 / 0.08);
 }
 
 /* Table rows */
 .order-row {
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
 .order-row:hover {
   background-color: rgb(248 250 252);
 }
 
-/* Expand panel */
+/* Order row entrance */
+.order-row.row-enter {
+  animation: rowEnter 0.45s var(--ease-out) both;
+}
+
+@keyframes rowEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.order-card-mob.card-enter {
+  animation: rowEnter 0.45s var(--ease-out) both;
+}
+
+/* Expand */
 .order-expand {
   display: grid;
   grid-template-rows: 0fr;
@@ -124,32 +130,35 @@ body.sidebar-lock {
   min-height: 0;
 }
 
-/* Progress track */
-.progress-track {
+/* Progress bar (animated fill) */
+.progress-bar-bg {
   height: 8px;
   border-radius: 9999px;
   background: rgb(241 245 249);
   overflow: hidden;
 }
 
-.progress-fill {
+.progress-bar-fill {
   height: 100%;
   border-radius: 9999px;
-  background: linear-gradient(90deg, rgb(99 102 241), rgb(139 92 246));
-  transition: width 0.55s var(--ease-out);
+  background: linear-gradient(90deg, rgb(71 85 105), rgb(15 23 42));
+  width: 0;
+  transition: width 0.85s var(--ease-out);
 }
 
-/* Chart */
-.chart-box {
-  max-width: min(260px, 100%);
-  margin-left: auto;
-  margin-right: auto;
+.progress-bar-fill.is-animated {
+  /* width set inline */
 }
 
-@media (max-width: 767px) {
-  .chart-box {
-    max-width: 100%;
-  }
+/* Profit emphasis */
+.profit-warn {
+  color: rgb(220 38 38);
+  font-weight: 600;
+}
+
+.profit-ok {
+  color: rgb(22 163 74);
+  font-weight: 600;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -158,16 +167,16 @@ body.sidebar-lock {
     opacity: 1;
   }
 
-  .modal-panel,
-  .modal-backdrop {
-    transition-duration: 0.01ms !important;
+  .order-row.row-enter,
+  .order-card-mob.card-enter {
+    animation: none;
   }
 
-  .order-expand {
-    transition: none;
+  .progress-bar-fill {
+    transition-duration: 0.01ms;
   }
 
-  .progress-fill {
+  .modal-panel {
     transition-duration: 0.01ms;
   }
 }
