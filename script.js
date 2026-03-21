@@ -1,277 +1,159 @@
 /**
- * Sewing Management Dashboard — core logic, persistence, charts
- * @module DashboardApp
+ * Garment production broker — SPA logic, charts, persistence
  */
 
 (function () {
   "use strict";
 
-  /** @typedef {'Planning'|'Cutting'|'Sewing'|'QC'|'Shipped'} OrderStatus */
+  const STORAGE_KEY = "garment-broker-spa-v1";
+
+  /** @typedef {'Negotiation'|'Materials'|'Cutting'|'Sewing'|'QC'|'Finished'} OrderStatus */
 
   /**
    * @typedef {Object} Order
    * @property {string} id
-   * @property {string} projectName
-   * @property {'perUnit'|'total'} budgetMode
-   * @property {number} clientBudgetInput — raw number from form (per unit OR total)
-   * @property {number} factoryPricePerUnit
+   * @property {string} orderName
+   * @property {string} clientName
+   * @property {number} clientBudget
+   * @property {string} factoryName
    * @property {number} quantity
-   * @property {number} materialCostsTotal
+   * @property {number} factoryPricePerUnit
+   * @property {number} materialCosts
+   * @property {number} additionalExpenses
+   * @property {number} progressPercent
    * @property {OrderStatus} status
-   * @property {number} createdAt — epoch ms
+   * @property {number} createdAt
    */
-
-  const STORAGE_KEY = "sewing-dashboard-orders-v1";
-
-  /** Progress % for status bar (pipeline) */
-  const STATUS_PROGRESS = {
-    Planning: 12,
-    Cutting: 32,
-    Sewing: 55,
-    QC: 82,
-    Shipped: 100,
-  };
-
-  /** Tailwind-friendly badge classes */
-  const STATUS_BADGE = {
-    Planning: "bg-slate-100 text-slate-700 ring-1 ring-slate-200/80",
-    Cutting: "bg-blue-50 text-blue-800 ring-1 ring-blue-200/80",
-    Sewing: "bg-orange-50 text-orange-800 ring-1 ring-orange-200/80",
-    QC: "bg-violet-50 text-violet-800 ring-1 ring-violet-200/80",
-    Shipped: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/80",
-  };
 
   /** @type {Order[]} */
   let orders = [];
 
-  /** @type {Record<string, import('chart.js').Chart>} */
-  const chartInstances = {};
+  /** @type {Record<string, Chart>} */
+  const charts = {};
 
-  // ——— DOM ———
-  const els = {
-    tbody: document.getElementById("orders-tbody"),
-    empty: document.getElementById("empty-state"),
-    kpiActive: document.getElementById("kpi-active-orders"),
-    kpiProfit: document.getElementById("kpi-net-profit"),
-    kpiMargin: document.getElementById("kpi-avg-margin"),
-    kpiCompletion: document.getElementById("kpi-completion"),
-    ordersLabel: document.getElementById("orders-count-label"),
-    savedIndicator: document.getElementById("saved-indicator"),
-    backdrop: document.getElementById("modal-backdrop"),
-    panel: document.getElementById("form-panel"),
-    form: document.getElementById("order-form"),
-    formTitle: document.getElementById("form-title"),
-    editId: document.getElementById("edit-id"),
-    btnOpen: document.getElementById("btn-open-form"),
-    btnClose: document.getElementById("btn-close-form"),
-    btnCancel: document.getElementById("btn-cancel-form"),
-    budgetRadios: () => document.querySelectorAll('input[name="budgetMode"]'),
-    budgetHint: document.getElementById("budget-hint"),
-    formError: document.getElementById("form-error"),
-    submitBtn: document.getElementById("btn-submit-form"),
+  const STATUS_STYLES = {
+    Negotiation: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
+    Materials: "bg-amber-50 text-amber-900 ring-1 ring-amber-200/80",
+    Cutting: "bg-sky-50 text-sky-800 ring-1 ring-sky-200/80",
+    Sewing: "bg-orange-50 text-orange-800 ring-1 ring-orange-200/80",
+    QC: "bg-violet-50 text-violet-800 ring-1 ring-violet-200/80",
+    Finished: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/80",
   };
 
-  // ——— Math ———
+  const els = {
+    body: document.getElementById("orders-body"),
+    empty: document.getElementById("empty-state"),
+    count: document.getElementById("order-count"),
+    kpiRevenue: document.getElementById("kpi-revenue"),
+    kpiCosts: document.getElementById("kpi-costs"),
+    kpiProfit: document.getElementById("kpi-profit"),
+    kpiMargin: document.getElementById("kpi-margin"),
+    sync: document.getElementById("sync-label"),
+    backdrop: document.getElementById("modal-backdrop"),
+    panel: document.getElementById("modal-panel"),
+    form: document.getElementById("order-form"),
+    title: document.getElementById("modal-title"),
+    editId: document.getElementById("edit-id"),
+    submit: document.getElementById("form-submit"),
+    err: document.getElementById("form-error"),
+    progress: document.getElementById("progress"),
+    progressLabel: document.getElementById("progress-label"),
+  };
 
-  /**
-   * Derive client unit price from mode + inputs.
-   * @param {'perUnit'|'total'} mode
-   * @param {number} budgetInput
-   * @param {number} qty
-   */
-  function getClientUnitPrice(mode, budgetInput, qty) {
-    if (mode === "perUnit") return budgetInput;
-    if (qty <= 0) return 0;
-    return budgetInput / qty;
-  }
-
-  /**
-   * Full financial snapshot for an order.
-   * @param {Order} o
-   */
-  function computeMetrics(o) {
-    const q = o.quantity;
-    const clientUnit = getClientUnitPrice(o.budgetMode, o.clientBudgetInput, q);
-    const revenue = q * clientUnit;
-    const factoryCost = q * o.factoryPricePerUnit;
-    const totalCosts = factoryCost + o.materialCostsTotal;
-    const netProfit = revenue - totalCosts;
-    const marginPct = revenue > 0 ? (netProfit / revenue) * 100 : 0;
-    const markupPct = totalCosts > 0 ? (netProfit / totalCosts) * 100 : 0;
+  /** @param {Order} o */
+  function metrics(o) {
+    const revenue = o.clientBudget;
+    const factoryTotal = o.quantity * o.factoryPricePerUnit;
+    const totalCosts = factoryTotal + o.materialCosts + o.additionalExpenses;
+    const grossProfit = revenue - totalCosts;
+    const netMarginPct = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+    const markupPct = totalCosts > 0 ? (grossProfit / totalCosts) * 100 : 0;
     return {
-      clientUnitPrice: clientUnit,
       revenue,
-      factoryCost,
+      factoryTotal,
       totalCosts,
-      netProfit,
-      marginPct,
+      grossProfit,
+      netMarginPct,
       markupPct,
     };
   }
 
-  // ——— Persistence ———
-
-  function load() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) orders = parsed;
-    } catch (e) {
-      console.warn("Dashboard: could not load storage", e);
-    }
-  }
-
-  function save() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-      if (els.savedIndicator) {
-        els.savedIndicator.textContent = "Synced";
-        els.savedIndicator.classList.add("text-emerald-400/90");
-      }
-    } catch (e) {
-      if (els.savedIndicator) {
-        els.savedIndicator.textContent = "Save failed";
-        els.savedIndicator.classList.remove("text-emerald-400/90");
-        els.savedIndicator.classList.add("text-amber-400");
-      }
-    }
-  }
-
-  // ——— Dashboard KPIs ———
-
-  function pulse(el) {
-    if (!el) return;
-    el.classList.remove("value-updated");
-    void el.offsetWidth;
-    el.classList.add("value-updated");
-  }
-
-  function updateKpis() {
-    const total = orders.length;
-    const active = orders.filter((o) => o.status !== "Shipped").length;
-    const shipped = orders.filter((o) => o.status === "Shipped").length;
-
-    let sumNet = 0;
-    let sumMargin = 0;
-    orders.forEach((o) => {
-      const m = computeMetrics(o);
-      sumNet += m.netProfit;
-      sumMargin += m.marginPct;
-    });
-
-    const avgMargin = total > 0 ? sumMargin / total : 0;
-    const completion = total > 0 ? (shipped / total) * 100 : 0;
-
-    els.kpiActive.textContent = String(active);
-    els.kpiProfit.textContent = formatMoney(sumNet);
-    els.kpiMargin.textContent = formatPct(avgMargin);
-    els.kpiCompletion.textContent = formatPct(completion);
-    els.ordersLabel.textContent = total === 1 ? "1 order" : `${total} orders`;
-
-    [els.kpiActive, els.kpiProfit, els.kpiMargin, els.kpiCompletion].forEach(pulse);
-  }
-
   function formatMoney(n) {
-    const sign = n < 0 ? "-" : "";
-    return sign + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const neg = n < 0;
+    const abs = Math.abs(n);
+    return (neg ? "−" : "") + "$" + abs.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   }
 
   function formatPct(n) {
     return n.toLocaleString("en-US", { maximumFractionDigits: 1 }) + "%";
   }
 
-  // ——— Table rendering ———
+  /** Net margin color classes for table */
+  function marginClass(m) {
+    if (m < 0) return "text-red-600 font-semibold bg-red-50 px-2 py-0.5 rounded-md";
+    if (m > 20) return "text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md";
+    if (m < 10) return "text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-md";
+    return "text-slate-700 font-medium bg-slate-100 px-2 py-0.5 rounded-md";
+  }
 
-  function renderTable() {
-    els.tbody.innerHTML = "";
-    if (orders.length === 0) {
-      els.empty.classList.remove("hidden");
-      return;
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (Array.isArray(p)) orders = p;
+      }
+    } catch (e) {
+      console.warn("Load failed", e);
     }
-    els.empty.classList.add("hidden");
+  }
 
-    const sorted = [...orders].sort((a, b) => b.createdAt - a.createdAt);
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+      if (els.sync) {
+        els.sync.textContent = "Synced";
+        els.sync.className = "text-emerald-400/90";
+      }
+    } catch (e) {
+      if (els.sync) {
+        els.sync.textContent = "Error";
+        els.sync.className = "text-amber-400";
+      }
+    }
+  }
 
-    sorted.forEach((o) => {
-      const m = computeMetrics(o);
-      const pct = STATUS_PROGRESS[o.status] ?? 0;
-      const badgeClass = STATUS_BADGE[o.status] || STATUS_BADGE.Planning;
+  function refreshIcons() {
+    if (typeof lucide !== "undefined" && lucide.createIcons) {
+      lucide.createIcons();
+    }
+  }
 
-      const trMain = document.createElement("tr");
-      trMain.className = "order-row-main border-slate-100 hover:bg-slate-50/80";
-      trMain.dataset.orderId = o.id;
-
-      trMain.innerHTML = `
-        <td class="px-5 py-3">
-          <button type="button" class="expand-toggle text-left font-medium text-slate-900 hover:text-emerald-700 flex items-center gap-2 group" data-expand="${o.id}" aria-expanded="false">
-            <span class="inline-block transition-transform duration-300 text-slate-400 group-hover:text-emerald-600" data-chevron>▸</span>
-            ${escapeHtml(o.projectName)}
-          </button>
-        </td>
-        <td class="px-5 py-3 tabular-nums text-slate-600">${o.quantity}</td>
-        <td class="px-5 py-3 tabular-nums font-medium text-slate-800">${formatMoney(m.revenue)}</td>
-        <td class="px-5 py-3 tabular-nums font-semibold ${m.netProfit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(m.netProfit)}</td>
-        <td class="px-5 py-3 tabular-nums text-indigo-600">${formatPct(m.marginPct)}</td>
-        <td class="px-5 py-3">
-          <div class="progress-track" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
-            <div class="progress-fill bg-gradient-to-r from-emerald-500 to-teal-500" style="width:${pct}%"></div>
-          </div>
-        </td>
-        <td class="px-5 py-3">
-          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${badgeClass}">${escapeHtml(o.status)}</span>
-        </td>
-        <td class="px-5 py-3 text-right space-x-2 whitespace-nowrap">
-          <button type="button" class="text-xs font-medium text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded-md hover:bg-indigo-50 transition-colors" data-action="edit" data-id="${o.id}">Edit</button>
-          <button type="button" class="text-xs font-medium text-red-600 hover:text-red-800 px-2 py-1 rounded-md hover:bg-red-50 transition-colors" data-action="delete" data-id="${o.id}">Delete</button>
-        </td>
-      `;
-
-      const trExpand = document.createElement("tr");
-      trExpand.className = "bg-slate-50/50";
-      trExpand.innerHTML = `
-        <td colspan="8" class="p-0 border-none">
-          <div class="order-expand" id="expand-wrap-${o.id}">
-            <div class="order-expand-inner">
-              <div class="px-5 py-6 border-t border-slate-100 grid md:grid-cols-2 gap-8 items-start">
-                <div class="space-y-3 text-sm">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Financial breakdown</p>
-                  <dl class="grid grid-cols-2 gap-x-4 gap-y-2 max-w-md">
-                    <dt class="text-slate-500">Client unit price</dt><dd class="tabular-nums text-right font-medium">${formatMoney(m.clientUnitPrice)}</dd>
-                    <dt class="text-slate-500">Revenue</dt><dd class="tabular-nums text-right font-semibold text-slate-900">${formatMoney(m.revenue)}</dd>
-                    <dt class="text-slate-500">Factory cost (total)</dt><dd class="tabular-nums text-right">${formatMoney(m.factoryCost)}</dd>
-                    <dt class="text-slate-500">Materials (total)</dt><dd class="tabular-nums text-right">${formatMoney(o.materialCostsTotal)}</dd>
-                    <dt class="text-slate-500">Total costs</dt><dd class="tabular-nums text-right">${formatMoney(m.totalCosts)}</dd>
-                    <dt class="text-slate-500">Net profit</dt><dd class="tabular-nums text-right font-semibold ${m.netProfit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(m.netProfit)}</dd>
-                    <dt class="text-slate-500">Margin %</dt><dd class="tabular-nums text-right text-indigo-600">${formatPct(m.marginPct)}</dd>
-                    <dt class="text-slate-500">Markup %</dt><dd class="tabular-nums text-right text-slate-700">${formatPct(m.markupPct)}</dd>
-                  </dl>
-                </div>
-                <div class="chart-wrap">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 text-center mb-3">Cost &amp; profit split</p>
-                  <canvas id="chart-${o.id}" height="200" aria-label="Doughnut chart for this order"></canvas>
-                  <p class="chart-note text-xs text-center mt-2 text-red-600 hidden"></p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </td>
-      `;
-
-      els.tbody.appendChild(trMain);
-      els.tbody.appendChild(trExpand);
-
-      // Stagger row entrance
-      trMain.style.opacity = "0";
-      trMain.style.transform = "translateY(8px)";
-      requestAnimationFrame(() => {
-        trMain.style.transition = "opacity 0.4s ease, transform 0.4s cubic-bezier(0.16,1,0.3,1)";
-        trMain.style.opacity = "1";
-        trMain.style.transform = "translateY(0)";
-      });
+  function updateKpis() {
+    let sumRev = 0;
+    let sumCost = 0;
+    let sumProfit = 0;
+    orders.forEach((o) => {
+      const m = metrics(o);
+      sumRev += m.revenue;
+      sumCost += m.totalCosts;
+      sumProfit += m.grossProfit;
     });
+    const blendedMargin = sumRev > 0 ? (sumProfit / sumRev) * 100 : 0;
 
-    bindTableEvents();
+    els.kpiRevenue.textContent = formatMoney(sumRev);
+    els.kpiCosts.textContent = formatMoney(sumCost);
+    els.kpiProfit.textContent = formatMoney(sumProfit);
+    els.kpiProfit.className =
+      "mt-3 text-2xl sm:text-3xl font-bold tabular-nums " +
+      (sumProfit >= 0 ? "text-emerald-600" : "text-red-600");
+    els.kpiMargin.textContent = formatPct(blendedMargin);
+    els.kpiMargin.className =
+      "mt-3 text-2xl sm:text-3xl font-bold tabular-nums " +
+      (blendedMargin >= 0 ? "text-violet-700" : "text-red-600");
+
+    const n = orders.length;
+    els.count.textContent = n === 1 ? "1 order" : n + " orders";
   }
 
   function escapeHtml(s) {
@@ -280,112 +162,62 @@
     return d.innerHTML;
   }
 
-  function bindTableEvents() {
-    els.tbody.querySelectorAll(".expand-toggle").forEach((btn) => {
-      btn.addEventListener("click", onToggleExpand);
-    });
-    els.tbody.querySelectorAll('[data-action="edit"]').forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        openEdit(btn.dataset.id);
-      });
-    });
-    els.tbody.querySelectorAll('[data-action="delete"]').forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        removeOrder(btn.dataset.id);
-      });
-    });
-  }
-
-  /**
-   * @param {Event} e
-   */
-  function onToggleExpand(e) {
-    const btn = e.currentTarget;
-    const id = btn.dataset.expand;
-    const wrap = document.getElementById("expand-wrap-" + id);
-    const mainRow = btn.closest("tr");
-    const chevron = btn.querySelector("[data-chevron]");
-    const isOpen = wrap.classList.contains("is-open");
-
-    if (isOpen) {
-      wrap.classList.remove("is-open");
-      mainRow.classList.remove("is-expanded");
-      btn.setAttribute("aria-expanded", "false");
-      if (chevron) chevron.style.transform = "rotate(0deg)";
-      destroyChart(id);
-    } else {
-      wrap.classList.add("is-open");
-      mainRow.classList.add("is-expanded");
-      btn.setAttribute("aria-expanded", "true");
-      if (chevron) chevron.style.transform = "rotate(90deg)";
-      const order = orders.find((x) => x.id === id);
-      if (order) {
-        requestAnimationFrame(() => renderDoughnut(order));
-      }
+  function destroyChart(id) {
+    if (charts[id]) {
+      charts[id].destroy();
+      delete charts[id];
     }
   }
 
-  /**
-   * Doughnut: segments for factory cost, materials, net profit (can be negative — clamp display)
-   * @param {Order} o
-   */
-  function renderDoughnut(o) {
+  /** @param {Order} o */
+  function renderPie(o) {
     const id = o.id;
     const canvas = document.getElementById("chart-" + id);
     if (!canvas || typeof Chart === "undefined") return;
 
     destroyChart(id);
-    const m = computeMetrics(o);
+    const m = metrics(o);
+    const mat = Math.max(0, o.materialCosts);
+    const fac = Math.max(0, m.factoryTotal);
+    const prof = m.grossProfit;
 
-    const factory = Math.max(0, m.factoryCost);
-    const materials = Math.max(0, o.materialCostsTotal);
-    const profit = m.netProfit;
-    /** Doughnut requires non-negative segments; loss is explained in tooltip + note */
-    const profitDisplay = Math.max(0, profit);
-
-    const data = [factory, materials, profitDisplay];
-    const labels = ["Factory costs", "Materials", "Net profit"];
-
-    const noteEl = canvas.closest(".chart-wrap")?.querySelector(".chart-note");
-    if (noteEl) {
-      if (profit < 0) {
-        noteEl.textContent = "Net profit is negative — review pricing or costs.";
-        noteEl.classList.remove("hidden");
+    const note = canvas.closest(".chart-box")?.querySelector(".chart-note");
+    if (note) {
+      if (prof < 0) {
+        note.textContent = "Negative profit — costs exceed client budget.";
+        note.classList.remove("hidden");
       } else {
-        noteEl.textContent = "";
-        noteEl.classList.add("hidden");
+        note.textContent = "";
+        note.classList.add("hidden");
       }
     }
 
-    chartInstances[id] = new Chart(canvas, {
-      type: "doughnut",
+    const profitSlice = Math.max(0, prof);
+    const data = [mat, fac, profitSlice];
+    const labels = ["Materials", "Factory", "Profit"];
+
+    charts[id] = new Chart(canvas, {
+      type: "pie",
       data: {
         labels,
         datasets: [
           {
             data,
-            backgroundColor: [
-              "rgb(71 85 105)", /* slate-600 */
-              "rgb(245 158 11)", /* amber-500 */
-              "rgb(5 150 105)", /* emerald-600 */
-            ],
-            borderWidth: 0,
-            hoverOffset: 8,
+            backgroundColor: ["rgb(245 158 11)", "rgb(71 85 105)", "rgb(16 185 129)"],
+            borderWidth: 2,
+            borderColor: "#fff",
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: true,
-        cutout: "62%",
         plugins: {
           legend: {
             position: "bottom",
             labels: {
-              boxWidth: 10,
-              padding: 12,
+              boxWidth: 12,
+              padding: 10,
               font: { size: 11, family: "Inter, system-ui, sans-serif" },
             },
           },
@@ -393,172 +225,218 @@
             callbacks: {
               label(ctx) {
                 const v = ctx.raw;
-                const lab = ctx.label || "";
-                const money = typeof v === "number" ? formatMoney(v) : v;
-                if (lab === "Net profit" && m.netProfit < 0) {
-                  return `${lab}: ${formatMoney(m.netProfit)} (loss)`;
+                const i = ctx.dataIndex;
+                if (i === 2 && m.grossProfit < 0) {
+                  return "Profit: " + formatMoney(m.grossProfit);
                 }
-                return `${lab}: ${money}`;
+                return (ctx.label || "") + ": " + formatMoney(typeof v === "number" ? v : 0);
               },
             },
+          },
+          title: {
+            display: true,
+            text: "Cost breakdown",
+            font: { size: 12, weight: "600" },
+            color: "#64748b",
+            padding: { bottom: 8 },
           },
         },
       },
     });
   }
 
-  function destroyChart(id) {
-    if (chartInstances[id]) {
-      chartInstances[id].destroy();
-      delete chartInstances[id];
+  function renderTable() {
+    els.body.innerHTML = "";
+    if (orders.length === 0) {
+      els.empty.classList.remove("hidden");
+      refreshIcons();
+      return;
+    }
+    els.empty.classList.add("hidden");
+
+    const sorted = [...orders].sort((a, b) => b.createdAt - a.createdAt);
+
+    sorted.forEach((o) => {
+      const m = metrics(o);
+      const pct = Math.min(100, Math.max(0, o.progressPercent));
+      const stClass = STATUS_STYLES[o.status] || STATUS_STYLES.Negotiation;
+      const marginCls = marginClass(m.netMarginPct);
+
+      const tr = document.createElement("tr");
+      tr.className = "order-row border-slate-100";
+      tr.innerHTML = `
+        <td class="px-4 sm:px-6 py-3 align-top">
+          <button type="button" class="expand-btn text-left font-medium text-slate-900 hover:text-indigo-700 flex items-start gap-2 group" data-id="${o.id}" aria-expanded="false">
+            <i data-lucide="chevron-right" class="h-4 w-4 mt-0.5 text-slate-400 transition-transform duration-300 shrink-0 icon-chevron" aria-hidden="true"></i>
+            <span>
+              <span class="block">${escapeHtml(o.orderName)}</span>
+              <span class="text-xs font-normal text-slate-500">${escapeHtml(o.clientName)}</span>
+            </span>
+          </button>
+        </td>
+        <td class="px-4 py-3 text-slate-600 align-top">${escapeHtml(o.factoryName)}</td>
+        <td class="px-4 py-3 tabular-nums font-medium text-slate-800 align-top">${formatMoney(m.revenue)}</td>
+        <td class="px-4 py-3 tabular-nums text-slate-600 align-top">${formatMoney(m.totalCosts)}</td>
+        <td class="px-4 py-3 tabular-nums font-semibold align-top ${m.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(m.grossProfit)}</td>
+        <td class="px-4 py-3 align-top"><span class="inline-block text-sm tabular-nums ${marginCls}">${formatPct(m.netMarginPct)}</span></td>
+        <td class="px-4 py-3 align-top">
+          <div class="progress-track" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-fill" style="width:${pct}%"></div>
+          </div>
+          <span class="text-[10px] text-slate-400 mt-1 block tabular-nums">${pct}% · ${escapeHtml(o.status)}</span>
+        </td>
+        <td class="px-4 py-3 align-top">
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${stClass}">${escapeHtml(o.status)}</span>
+        </td>
+        <td class="px-4 py-3 text-right align-top whitespace-nowrap space-x-1">
+          <button type="button" class="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50" data-act="edit" data-id="${o.id}">
+            <i data-lucide="pencil" class="h-3.5 w-3.5" aria-hidden="true"></i> Edit
+          </button>
+          <button type="button" class="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" data-act="del" data-id="${o.id}">
+            <i data-lucide="trash-2" class="h-3.5 w-3.5" aria-hidden="true"></i> Delete
+          </button>
+        </td>
+      `;
+
+      const trExp = document.createElement("tr");
+      trExp.className = "bg-slate-50/80";
+      trExp.innerHTML = `
+        <td colspan="9" class="p-0 border-0">
+          <div class="order-expand" id="ex-${o.id}">
+            <div class="order-expand-inner">
+              <div class="px-4 sm:px-6 py-6 border-t border-slate-100 grid lg:grid-cols-2 gap-8 items-start">
+                <div class="text-sm space-y-3">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Financial detail</p>
+                  <dl class="grid grid-cols-2 gap-x-4 gap-y-2 max-w-md">
+                    <dt class="text-slate-500">Revenue (client)</dt><dd class="text-right tabular-nums font-medium">${formatMoney(m.revenue)}</dd>
+                    <dt class="text-slate-500">Factory (qty × unit)</dt><dd class="text-right tabular-nums">${formatMoney(m.factoryTotal)}</dd>
+                    <dt class="text-slate-500">Materials</dt><dd class="text-right tabular-nums">${formatMoney(o.materialCosts)}</dd>
+                    <dt class="text-slate-500">Additional expenses</dt><dd class="text-right tabular-nums">${formatMoney(o.additionalExpenses)}</dd>
+                    <dt class="text-slate-500">Total costs</dt><dd class="text-right tabular-nums font-medium">${formatMoney(m.totalCosts)}</dd>
+                    <dt class="text-slate-500">Gross profit</dt><dd class="text-right tabular-nums font-semibold ${m.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(m.grossProfit)}</dd>
+                    <dt class="text-slate-500">Net margin</dt><dd class="text-right tabular-nums"><span class="inline-block text-sm ${marginCls}">${formatPct(m.netMarginPct)}</span></dd>
+                    <dt class="text-slate-500">Markup</dt><dd class="text-right tabular-nums text-slate-700">${formatPct(m.markupPct)}</dd>
+                  </dl>
+                </div>
+                <div class="chart-box">
+                  <canvas id="chart-${o.id}" height="220" aria-label="Cost breakdown pie chart"></canvas>
+                  <p class="chart-note hidden text-xs text-center text-red-600 mt-2"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </td>
+      `;
+
+      els.body.appendChild(tr);
+      els.body.appendChild(trExp);
+    });
+
+    bindRows();
+    refreshIcons();
+  }
+
+  function bindRows() {
+    els.body.querySelectorAll(".expand-btn").forEach((btn) => {
+      btn.addEventListener("click", onExpand);
+    });
+    els.body.querySelectorAll("[data-act='edit']").forEach((b) => {
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openEdit(b.getAttribute("data-id"));
+      });
+    });
+    els.body.querySelectorAll("[data-act='del']").forEach((b) => {
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        removeOrder(b.getAttribute("data-id"));
+      });
+    });
+  }
+
+  /** @param {Event} e */
+  function onExpand(e) {
+    const btn = e.currentTarget;
+    const id = btn.getAttribute("data-id");
+    const wrap = document.getElementById("ex-" + id);
+    const chev = btn.querySelector(".icon-chevron");
+    const open = wrap.classList.contains("is-open");
+
+    if (open) {
+      wrap.classList.remove("is-open");
+      btn.setAttribute("aria-expanded", "false");
+      if (chev) chev.style.transform = "rotate(0deg)";
+      destroyChart(id);
+    } else {
+      wrap.classList.add("is-open");
+      btn.setAttribute("aria-expanded", "true");
+      if (chev) chev.style.transform = "rotate(90deg)";
+      const order = orders.find((x) => x.id === id);
+      if (order) requestAnimationFrame(() => renderPie(order));
     }
   }
 
-  // ——— CRUD ———
-
-  function openForm(isEdit) {
+  function openModal(isEdit) {
     els.backdrop.classList.add("is-open");
+    els.backdrop.setAttribute("aria-hidden", "false");
     els.panel.classList.add("is-open");
-    els.formTitle.textContent = isEdit ? "Edit order" : "New order";
-    els.submitBtn.textContent = isEdit ? "Update order" : "Save order";
+    els.panel.classList.remove("scale-95", "opacity-0", "pointer-events-none");
+    els.panel.classList.add("scale-100", "opacity-100", "pointer-events-auto");
+    els.title.textContent = isEdit ? "Edit order" : "New order";
+    els.submit.textContent = isEdit ? "Update" : "Save order";
     document.body.style.overflow = "hidden";
+    refreshIcons();
   }
 
-  function closeForm() {
+  function closeModal() {
     els.backdrop.classList.remove("is-open");
-    els.panel.classList.remove("is-open");
+    els.backdrop.setAttribute("aria-hidden", "true");
+    els.panel.classList.remove("is-open", "scale-100", "opacity-100", "pointer-events-auto");
+    els.panel.classList.add("scale-95", "opacity-0", "pointer-events-none");
     document.body.style.overflow = "";
-    hideFormError();
+    hideErr();
+  }
+
+  function hideErr() {
+    els.err.classList.add("hidden");
+    els.err.textContent = "";
+  }
+
+  function showErr(msg) {
+    els.err.textContent = msg;
+    els.err.classList.remove("hidden");
   }
 
   function openNew() {
     els.form.reset();
     els.editId.value = "";
-    setBudgetMode("perUnit");
-    updateBudgetHint();
-    openForm(false);
+    els.progress.value = "0";
+    els.progressLabel.textContent = "0%";
+    openModal(false);
   }
 
-  /**
-   * @param {string} id
-   */
+  /** @param {string|null} id */
   function openEdit(id) {
     const o = orders.find((x) => x.id === id);
     if (!o) return;
     els.editId.value = o.id;
-    document.getElementById("project-name").value = o.projectName;
-    setBudgetMode(o.budgetMode);
-    document.getElementById("client-budget").value = String(o.clientBudgetInput);
-    document.getElementById("factory-price").value = String(o.factoryPricePerUnit);
+    document.getElementById("order-name").value = o.orderName;
+    document.getElementById("client-name").value = o.clientName;
+    document.getElementById("client-budget").value = String(o.clientBudget);
+    document.getElementById("factory-name").value = o.factoryName;
     document.getElementById("quantity").value = String(o.quantity);
-    document.getElementById("material-costs").value = String(o.materialCostsTotal);
+    document.getElementById("factory-price").value = String(o.factoryPricePerUnit);
+    document.getElementById("material-costs").value = String(o.materialCosts);
+    document.getElementById("extra-expenses").value = String(o.additionalExpenses);
+    document.getElementById("progress").value = String(o.progressPercent);
     document.getElementById("status").value = o.status;
-    updateBudgetHint();
-    openForm(true);
+    els.progressLabel.textContent = o.progressPercent + "%";
+    openModal(true);
   }
 
-  function setBudgetMode(mode) {
-    els.budgetRadios().forEach((r) => {
-      r.checked = r.value === mode;
-    });
-  }
-
-  function getBudgetMode() {
-    const sel = Array.from(els.budgetRadios()).find((r) => r.checked);
-    return sel && sel.value === "total" ? "total" : "perUnit";
-  }
-
-  function updateBudgetHint() {
-    const mode = getBudgetMode();
-    els.budgetHint.textContent =
-      mode === "perUnit" ? "Unit price charged to client." : "Total client budget; unit price = budget ÷ quantity.";
-  }
-
-  function hideFormError() {
-    els.formError.classList.add("hidden");
-    els.formError.textContent = "";
-  }
-
-  function showFormError(msg) {
-    els.formError.textContent = msg;
-    els.formError.classList.remove("hidden");
-  }
-
-  /**
-   * @param {Event} e
-   */
-  function onSubmit(e) {
-    e.preventDefault();
-    hideFormError();
-
-    const projectName = document.getElementById("project-name").value.trim();
-    const budgetMode = getBudgetMode();
-    const clientBudget = parseFloat(document.getElementById("client-budget").value);
-    const factoryPrice = parseFloat(document.getElementById("factory-price").value);
-    const quantity = parseInt(document.getElementById("quantity").value, 10);
-    const materialCosts = parseFloat(document.getElementById("material-costs").value);
-    /** @type {OrderStatus} */
-    const status = document.getElementById("status").value;
-    const editId = els.editId.value.trim();
-
-    if (!projectName) {
-      showFormError("Project name is required.");
-      return;
-    }
-    if (Number.isNaN(clientBudget) || clientBudget < 0) {
-      showFormError("Client budget must be a non-negative number.");
-      return;
-    }
-    if (Number.isNaN(factoryPrice) || factoryPrice < 0) {
-      showFormError("Factory price must be a non-negative number.");
-      return;
-    }
-    if (Number.isNaN(quantity) || quantity < 1) {
-      showFormError("Quantity must be at least 1.");
-      return;
-    }
-    if (budgetMode === "total" && clientBudget <= 0) {
-      showFormError("Total budget must be greater than 0.");
-      return;
-    }
-    if (Number.isNaN(materialCosts) || materialCosts < 0) {
-      showFormError("Material costs must be a non-negative number.");
-      return;
-    }
-
-    const snapshot = {
-      projectName,
-      budgetMode,
-      clientBudgetInput: clientBudget,
-      factoryPricePerUnit: factoryPrice,
-      quantity,
-      materialCostsTotal: materialCosts,
-      status,
-    };
-
-    if (editId) {
-      const idx = orders.findIndex((x) => x.id === editId);
-      if (idx === -1) return;
-      orders[idx] = { ...orders[idx], ...snapshot };
-    } else {
-      orders.push({
-        id: crypto.randomUUID(),
-        ...snapshot,
-        createdAt: Date.now(),
-      });
-    }
-
-    save();
-    updateKpis();
-    renderTable();
-    closeForm();
-  }
-
-  /**
-   * @param {string} id
-   */
+  /** @param {string|null} id */
   function removeOrder(id) {
-    if (!confirm("Delete this order? This cannot be undone.")) return;
+    if (!id || !confirm("Delete this order?")) return;
     destroyChart(id);
     orders = orders.filter((o) => o.id !== id);
     save();
@@ -566,23 +444,99 @@
     renderTable();
   }
 
-  // ——— Init ———
+  /** @param {Event} e */
+  function onSubmit(e) {
+    e.preventDefault();
+    hideErr();
+
+    const orderName = document.getElementById("order-name").value.trim();
+    const clientName = document.getElementById("client-name").value.trim();
+    const clientBudget = parseFloat(document.getElementById("client-budget").value);
+    const factoryName = document.getElementById("factory-name").value.trim();
+    const quantity = parseInt(document.getElementById("quantity").value, 10);
+    const factoryPrice = parseFloat(document.getElementById("factory-price").value);
+    const materialCosts = parseFloat(document.getElementById("material-costs").value);
+    const extra = parseFloat(document.getElementById("extra-expenses").value);
+    const progressPercent = parseInt(els.progress.value, 10);
+    /** @type {OrderStatus} */
+    const status = document.getElementById("status").value;
+    const edit = els.editId.value.trim();
+
+    if (!orderName || !clientName) {
+      showErr("Order name and client name are required.");
+      return;
+    }
+    if (Number.isNaN(clientBudget) || clientBudget < 0) {
+      showErr("Client budget must be a valid non-negative number.");
+      return;
+    }
+    if (!factoryName) {
+      showErr("Factory / workshop name is required.");
+      return;
+    }
+    if (Number.isNaN(quantity) || quantity < 1) {
+      showErr("Quantity must be at least 1.");
+      return;
+    }
+    if (Number.isNaN(factoryPrice) || factoryPrice < 0) {
+      showErr("Factory price per unit must be valid.");
+      return;
+    }
+    if (Number.isNaN(materialCosts) || materialCosts < 0 || Number.isNaN(extra) || extra < 0) {
+      showErr("Material costs and additional expenses must be valid non-negative numbers.");
+      return;
+    }
+
+    const payload = {
+      orderName,
+      clientName,
+      clientBudget,
+      factoryName,
+      quantity,
+      factoryPricePerUnit: factoryPrice,
+      materialCosts,
+      additionalExpenses: extra,
+      progressPercent: Math.min(100, Math.max(0, Number.isNaN(progressPercent) ? 0 : progressPercent)),
+      status,
+    };
+
+    if (edit) {
+      const i = orders.findIndex((x) => x.id === edit);
+      if (i === -1) return;
+      orders[i] = { ...orders[i], ...payload };
+    } else {
+      orders.push({
+        id: crypto.randomUUID(),
+        ...payload,
+        createdAt: Date.now(),
+      });
+    }
+
+    save();
+    updateKpis();
+    renderTable();
+    closeModal();
+  }
+
+  function onProgressInput() {
+    els.progressLabel.textContent = els.progress.value + "%";
+  }
 
   function init() {
     load();
     updateKpis();
     renderTable();
+    refreshIcons();
 
-    els.btnOpen.addEventListener("click", openNew);
-    els.btnClose.addEventListener("click", closeForm);
-    els.btnCancel.addEventListener("click", closeForm);
-    els.backdrop.addEventListener("click", closeForm);
+    document.getElementById("btn-new-order").addEventListener("click", openNew);
+    document.getElementById("modal-close").addEventListener("click", closeModal);
+    document.getElementById("form-cancel").addEventListener("click", closeModal);
+    els.backdrop.addEventListener("click", closeModal);
     els.form.addEventListener("submit", onSubmit);
-
-    els.budgetRadios().forEach((r) => r.addEventListener("change", updateBudgetHint));
+    els.progress.addEventListener("input", onProgressInput);
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && els.panel.classList.contains("is-open")) closeForm();
+      if (e.key === "Escape" && els.panel.classList.contains("is-open")) closeModal();
     });
   }
 

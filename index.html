@@ -3,26 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sewing Operations — Management Dashboard</title>
-  <!-- Inter font -->
+  <title>Garment Broker — Production Control</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
+      darkMode: "class",
       theme: {
         extend: {
           fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
-          colors: {
-            sidebar: "#0f172a",
-            canvas: "#f1f5f9",
-            accent: { DEFAULT: "#059669", soft: "#d1fae5" },
-            indigo: { profit: "#4f46e5" },
-          },
           boxShadow: {
-            card: "0 1px 2px 0 rgb(0 0 0 / 0.05), 0 1px 3px 0 rgb(0 0 0 / 0.08)",
+            card: "0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06)",
+            "card-hover": "0 10px 40px -10px rgb(0 0 0 / 0.12)",
           },
         },
       },
@@ -32,279 +26,236 @@
 </head>
 <body class="font-sans antialiased text-slate-800 bg-slate-100 min-h-screen">
   <div class="flex min-h-screen">
-    <!-- Dark sidebar -->
-    <aside
-      class="sidebar w-64 shrink-0 bg-slate-900 text-slate-200 flex flex-col border-r border-slate-800/80"
-      aria-label="Main navigation"
-    >
+    <!-- Sidebar -->
+    <aside class="sidebar w-64 shrink-0 bg-slate-900 text-slate-200 flex flex-col border-r border-slate-800">
       <div class="p-6 border-b border-slate-800/80">
         <div class="flex items-center gap-3">
-          <div
-            class="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white font-bold text-sm shadow-lg"
-          >
-            SO
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg">
+            <i data-lucide="shirt" class="h-5 w-5 text-white" aria-hidden="true"></i>
           </div>
           <div>
-            <p class="text-xs uppercase tracking-wider text-slate-500 font-medium">Mediator</p>
-            <p class="font-semibold text-white">Sewing Ops</p>
+            <p class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Broker</p>
+            <p class="font-semibold text-white tracking-tight">Garment Ops</p>
           </div>
         </div>
       </div>
-      <nav class="flex-1 p-4 space-y-1">
-        <a
-          href="#"
-          class="nav-item nav-item-active flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-800/80 text-white border border-slate-700/50"
-        >
-          <span class="nav-icon">◉</span>
-          <span>Orders</span>
+      <nav class="flex-1 p-3 space-y-0.5" aria-label="Primary">
+        <a href="#" class="nav-link flex items-center gap-3 rounded-lg bg-slate-800/90 px-3 py-2.5 text-white border border-slate-700/50">
+          <i data-lucide="layout-dashboard" class="h-4 w-4 shrink-0 opacity-90" aria-hidden="true"></i>
+          <span class="text-sm font-medium">Dashboard</span>
         </a>
-        <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white">
-          <span class="nav-icon opacity-70">◇</span>
-          <span>Analytics</span>
+        <a href="#" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors">
+          <i data-lucide="package" class="h-4 w-4 shrink-0" aria-hidden="true"></i>
+          <span class="text-sm">Orders</span>
         </a>
-        <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white">
-          <span class="nav-icon opacity-70">⚙</span>
-          <span>Settings</span>
+        <a href="#" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors">
+          <i data-lucide="building-2" class="h-4 w-4 shrink-0" aria-hidden="true"></i>
+          <span class="text-sm">Workshops</span>
+        </a>
+        <a href="#" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors">
+          <i data-lucide="settings" class="h-4 w-4 shrink-0" aria-hidden="true"></i>
+          <span class="text-sm">Settings</span>
         </a>
       </nav>
-      <div class="p-4 border-t border-slate-800/80 text-xs text-slate-500">
-        <p>Local data · <span id="saved-indicator" class="text-emerald-400/90">Synced</span></p>
+      <div class="p-4 border-t border-slate-800/80 text-xs text-slate-500 flex items-center gap-2">
+        <i data-lucide="hard-drive" class="h-3.5 w-3.5 text-emerald-500/90" aria-hidden="true"></i>
+        <span>Local storage · <span id="sync-label" class="text-emerald-400/90">Synced</span></span>
       </div>
     </aside>
 
     <!-- Main -->
     <div class="flex-1 flex flex-col min-w-0">
-      <header
-        class="sticky top-0 z-30 bg-slate-100/90 backdrop-blur-md border-b border-slate-200/80 px-6 py-4 flex flex-wrap items-center justify-between gap-4"
-      >
+      <header class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 class="text-xl font-semibold text-slate-900 tracking-tight">Management Dashboard</h1>
-          <p class="text-sm text-slate-500 mt-0.5">Sewing business agent — pipeline &amp; margin control</p>
+          <h1 class="text-xl font-semibold text-slate-900 tracking-tight">Production overview</h1>
+          <p class="text-sm text-slate-500 mt-0.5">Garment production broker — orders &amp; margin control</p>
         </div>
         <button
           type="button"
-          id="btn-open-form"
-          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+          id="btn-new-order"
+          class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all hover:shadow-md"
         >
-          <span aria-hidden="true">+</span>
+          <i data-lucide="plus" class="h-4 w-4" aria-hidden="true"></i>
           New order
         </button>
       </header>
 
-      <main class="flex-1 p-6 space-y-6 max-w-[1600px] mx-auto w-full">
+      <main class="flex-1 p-4 sm:p-8 max-w-[1600px] mx-auto w-full space-y-8">
         <!-- KPI cards -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label="Key metrics">
-          <article
-            class="stat-card kpi-card bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-shadow duration-300"
-            data-kpi="orders"
-          >
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Total active orders</p>
-            <p class="mt-2 text-3xl font-bold text-slate-900 tabular-nums" id="kpi-active-orders">0</p>
-            <p class="mt-1 text-xs text-slate-400">Excludes shipped</p>
+        <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" id="kpi-section" aria-label="Summary metrics">
+          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-5 shadow-card hover:shadow-card-hover transition-all duration-300">
+            <div class="flex items-start justify-between gap-2">
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total revenue</p>
+              <span class="rounded-lg bg-indigo-50 p-2 text-indigo-600"><i data-lucide="banknote" class="h-4 w-4" aria-hidden="true"></i></span>
+            </div>
+            <p class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums" id="kpi-revenue">$0</p>
+            <p class="mt-1 text-xs text-slate-400">Sum of client budgets</p>
           </article>
-          <article
-            class="stat-card kpi-card bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-shadow duration-300"
-            data-kpi="profit"
-          >
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Total net profit</p>
-            <p class="mt-2 text-3xl font-bold text-emerald-600 tabular-nums" id="kpi-net-profit">$0</p>
-            <p class="mt-1 text-xs text-slate-400">Sum across all projects</p>
+          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-5 shadow-card hover:shadow-card-hover transition-all duration-300">
+            <div class="flex items-start justify-between gap-2">
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total costs</p>
+              <span class="rounded-lg bg-slate-100 p-2 text-slate-600"><i data-lucide="receipt" class="h-4 w-4" aria-hidden="true"></i></span>
+            </div>
+            <p class="mt-3 text-2xl sm:text-3xl font-bold text-slate-800 tabular-nums" id="kpi-costs">$0</p>
+            <p class="mt-1 text-xs text-slate-400">Factory + materials + expenses</p>
           </article>
-          <article
-            class="stat-card kpi-card bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-shadow duration-300"
-            data-kpi="margin"
-          >
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Average margin</p>
-            <p class="mt-2 text-3xl font-bold text-indigo-600 tabular-nums" id="kpi-avg-margin">0%</p>
-            <p class="mt-1 text-xs text-slate-400">Mean of project margins</p>
+          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-5 shadow-card hover:shadow-card-hover transition-all duration-300">
+            <div class="flex items-start justify-between gap-2">
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Gross profit</p>
+              <span class="rounded-lg bg-emerald-50 p-2 text-emerald-600"><i data-lucide="trending-up" class="h-4 w-4" aria-hidden="true"></i></span>
+            </div>
+            <p class="mt-3 text-2xl sm:text-3xl font-bold tabular-nums" id="kpi-profit">$0</p>
+            <p class="mt-1 text-xs text-slate-400">Revenue − total costs</p>
           </article>
-          <article
-            class="stat-card kpi-card bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-shadow duration-300"
-            data-kpi="completion"
-          >
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Completion rate</p>
-            <p class="mt-2 text-3xl font-bold text-slate-900 tabular-nums" id="kpi-completion">0%</p>
-            <p class="mt-1 text-xs text-slate-400">Shipped / total</p>
+          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-5 shadow-card hover:shadow-card-hover transition-all duration-300">
+            <div class="flex items-start justify-between gap-2">
+              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Net margin</p>
+              <span class="rounded-lg bg-violet-50 p-2 text-violet-600"><i data-lucide="percent" class="h-4 w-4" aria-hidden="true"></i></span>
+            </div>
+            <p class="mt-3 text-2xl sm:text-3xl font-bold text-violet-700 tabular-nums" id="kpi-margin">0%</p>
+            <p class="mt-1 text-xs text-slate-400">Blended (all orders)</p>
           </article>
         </section>
 
         <!-- Table -->
-        <section class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
-          <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-sm font-semibold text-slate-900">Active orders</h2>
-            <p class="text-xs text-slate-500" id="orders-count-label">0 orders</p>
+        <section class="rounded-xl border border-slate-200/80 bg-white shadow-card overflow-hidden">
+          <div class="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-slate-100">
+            <h2 class="text-sm font-semibold text-slate-900">Orders</h2>
+            <p class="text-xs text-slate-500" id="order-count">0 orders</p>
           </div>
           <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left min-w-[900px]">
-              <thead class="text-xs uppercase text-slate-500 bg-slate-50/80 border-b border-slate-100">
+            <table class="w-full min-w-[1000px] text-sm text-left">
+              <thead class="text-xs uppercase text-slate-500 bg-slate-50/90 border-b border-slate-100">
                 <tr>
-                  <th scope="col" class="px-5 py-3 font-medium">Project</th>
-                  <th scope="col" class="px-5 py-3 font-medium">Qty</th>
-                  <th scope="col" class="px-5 py-3 font-medium">Revenue</th>
-                  <th scope="col" class="px-5 py-3 font-medium">Net profit</th>
-                  <th scope="col" class="px-5 py-3 font-medium">Margin</th>
-                  <th scope="col" class="px-5 py-3 font-medium min-w-[200px]">Progress</th>
-                  <th scope="col" class="px-5 py-3 font-medium">Status</th>
-                  <th scope="col" class="px-5 py-3 font-medium text-right">Actions</th>
+                  <th class="px-4 sm:px-6 py-3 font-semibold">Order / Client</th>
+                  <th class="px-4 py-3 font-semibold">Workshop</th>
+                  <th class="px-4 py-3 font-semibold tabular-nums">Revenue</th>
+                  <th class="px-4 py-3 font-semibold tabular-nums">Costs</th>
+                  <th class="px-4 py-3 font-semibold tabular-nums">Profit</th>
+                  <th class="px-4 py-3 font-semibold">Margin</th>
+                  <th class="px-4 py-3 font-semibold min-w-[180px]">Progress</th>
+                  <th class="px-4 py-3 font-semibold">Status</th>
+                  <th class="px-4 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody id="orders-tbody" class="divide-y divide-slate-100"></tbody>
+              <tbody id="orders-body" class="divide-y divide-slate-100"></tbody>
             </table>
           </div>
-          <p id="empty-state" class="hidden px-5 py-12 text-center text-slate-500 text-sm">
-            No orders yet. Create one with <strong>New order</strong>.
-          </p>
+          <div id="empty-state" class="hidden px-6 py-16 text-center">
+            <i data-lucide="inbox" class="h-12 w-12 mx-auto text-slate-300 mb-3" aria-hidden="true"></i>
+            <p class="text-slate-500 text-sm">No orders yet. Create one with <strong class="text-slate-700">New order</strong>.</p>
+          </div>
         </section>
       </main>
     </div>
   </div>
 
-  <!-- Modal overlay -->
+  <!-- Modal backdrop -->
   <div
     id="modal-backdrop"
-    class="modal-backdrop fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300"
+    class="modal-backdrop fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-[2px] opacity-0 pointer-events-none transition-opacity duration-300"
     aria-hidden="true"
   ></div>
 
-  <!-- Order form panel (slide-over) -->
-  <aside
-    id="form-panel"
-    class="form-panel fixed top-0 right-0 z-50 h-full w-full max-w-md bg-white shadow-2xl border-l border-slate-200 translate-x-full transition-transform duration-300 ease-out flex flex-col"
+  <!-- Modal panel -->
+  <div
+    id="modal-panel"
+    class="modal-panel fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 scale-95 opacity-0 pointer-events-none transition-all duration-300"
     role="dialog"
     aria-modal="true"
-    aria-labelledby="form-title"
+    aria-labelledby="modal-title"
   >
-    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-      <h2 id="form-title" class="text-lg font-semibold text-slate-900">New order</h2>
-      <button
-        type="button"
-        id="btn-close-form"
-        class="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-        aria-label="Close"
-      >
-        ✕
-      </button>
-    </div>
-    <form id="order-form" class="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-      <input type="hidden" id="edit-id" name="editId" value="" />
-
-      <div>
-        <label for="project-name" class="block text-xs font-medium text-slate-600 mb-1.5">Project name</label>
-        <input
-          type="text"
-          id="project-name"
-          name="projectName"
-          required
-          maxlength="120"
-          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none transition-shadow"
-          placeholder="e.g. Spring jacket batch"
-        />
+    <div class="rounded-2xl border border-slate-200 bg-white shadow-2xl max-h-[min(90vh,720px)] flex flex-col overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+        <h2 id="modal-title" class="text-lg font-semibold text-slate-900">New order</h2>
+        <button type="button" id="modal-close" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors" aria-label="Close">
+          <i data-lucide="x" class="h-5 w-5" aria-hidden="true"></i>
+        </button>
       </div>
+      <form id="order-form" class="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+        <input type="hidden" id="edit-id" name="editId" value="" />
 
-      <fieldset class="space-y-2">
-        <legend class="text-xs font-medium text-slate-600 mb-2">Client budget</legend>
-        <div class="flex gap-4 text-sm">
-          <label class="inline-flex items-center gap-2 cursor-pointer">
-            <input type="radio" name="budgetMode" value="perUnit" class="text-emerald-600" checked />
-            <span>Per unit ($)</span>
-          </label>
-          <label class="inline-flex items-center gap-2 cursor-pointer">
-            <input type="radio" name="budgetMode" value="total" class="text-emerald-600" />
-            <span>Total ($)</span>
-          </label>
+        <div class="space-y-3">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Order info</p>
+          <div>
+            <label for="order-name" class="block text-xs font-medium text-slate-600 mb-1">Order name</label>
+            <input type="text" id="order-name" required maxlength="160" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="e.g. SS26 Linen batch" />
+          </div>
+          <div>
+            <label for="client-name" class="block text-xs font-medium text-slate-600 mb-1">Client name</label>
+            <input type="text" id="client-name" required maxlength="160" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Company or contact" />
+          </div>
         </div>
-        <input
-          type="number"
-          id="client-budget"
-          name="clientBudget"
-          required
-          min="0"
-          step="0.01"
-          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none"
-          placeholder="0.00"
-        />
-        <p class="text-xs text-slate-400" id="budget-hint">Unit price charged to client.</p>
-      </fieldset>
 
-      <div>
-        <label for="factory-price" class="block text-xs font-medium text-slate-600 mb-1.5">Factory price (per unit)</label>
-        <input
-          type="number"
-          id="factory-price"
-          name="factoryPrice"
-          required
-          min="0"
-          step="0.01"
-          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none"
-          placeholder="0.00"
-        />
-      </div>
+        <div class="space-y-3 pt-1">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Client side</p>
+          <div>
+            <label for="client-budget" class="block text-xs font-medium text-slate-600 mb-1">Total budget from client (revenue)</label>
+            <input type="number" id="client-budget" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="0.00" />
+          </div>
+        </div>
 
-      <div>
-        <label for="quantity" class="block text-xs font-medium text-slate-600 mb-1.5">Total quantity</label>
-        <input
-          type="number"
-          id="quantity"
-          name="quantity"
-          required
-          min="1"
-          step="1"
-          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none"
-          placeholder="1"
-        />
-      </div>
+        <div class="space-y-3 pt-1">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Production &amp; costs</p>
+          <div>
+            <label for="factory-name" class="block text-xs font-medium text-slate-600 mb-1">Factory / workshop</label>
+            <input type="text" id="factory-name" required maxlength="160" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Workshop name" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="quantity" class="block text-xs font-medium text-slate-600 mb-1">Quantity</label>
+              <input type="number" id="quantity" required min="1" step="1" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" value="1" />
+            </div>
+            <div>
+              <label for="factory-price" class="block text-xs font-medium text-slate-600 mb-1">Factory price / unit</label>
+              <input type="number" id="factory-price" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="0.00" />
+            </div>
+          </div>
+          <div>
+            <label for="material-costs" class="block text-xs font-medium text-slate-600 mb-1">Material costs (total)</label>
+            <input type="number" id="material-costs" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="0.00" />
+          </div>
+          <div>
+            <label for="extra-expenses" class="block text-xs font-medium text-slate-600 mb-1">Additional expenses</label>
+            <input type="number" id="extra-expenses" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="Shipping, taxes…" />
+          </div>
+        </div>
 
-      <div>
-        <label for="material-costs" class="block text-xs font-medium text-slate-600 mb-1.5">Material costs (total)</label>
-        <input
-          type="number"
-          id="material-costs"
-          name="materialCosts"
-          required
-          min="0"
-          step="0.01"
-          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none"
-          placeholder="0.00"
-        />
-      </div>
+        <div class="space-y-3 pt-1">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</p>
+          <div>
+            <label for="progress" class="block text-xs font-medium text-slate-600 mb-1">Progress (0–100%)</label>
+            <input type="range" id="progress" min="0" max="100" value="0" class="w-full h-2 rounded-lg appearance-none bg-slate-200 accent-indigo-600" />
+            <div class="flex justify-between text-xs text-slate-400 mt-1">
+              <span>0%</span>
+              <span id="progress-label" class="font-medium text-slate-700 tabular-nums">0%</span>
+              <span>100%</span>
+            </div>
+          </div>
+          <div>
+            <label for="status" class="block text-xs font-medium text-slate-600 mb-1">Stage</label>
+            <select id="status" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white">
+              <option value="Negotiation">Negotiation</option>
+              <option value="Materials">Materials</option>
+              <option value="Cutting">Cutting</option>
+              <option value="Sewing">Sewing</option>
+              <option value="QC">QC</option>
+              <option value="Finished">Finished</option>
+            </select>
+          </div>
+        </div>
 
-      <div>
-        <label for="status" class="block text-xs font-medium text-slate-600 mb-1.5">Status</label>
-        <select
-          id="status"
-          name="status"
-          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none"
-        >
-          <option value="Planning">Planning</option>
-          <option value="Cutting">Cutting</option>
-          <option value="Sewing">Sewing</option>
-          <option value="QC">QC</option>
-          <option value="Shipped">Shipped</option>
-        </select>
-      </div>
+        <p id="form-error" class="hidden text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2" role="alert"></p>
 
-      <p id="form-error" class="hidden text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2" role="alert"></p>
+        <div class="flex gap-3 pt-2 pb-2 border-t border-slate-100">
+          <button type="button" id="form-cancel" class="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Cancel</button>
+          <button type="submit" id="form-submit" class="flex-1 rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 shadow-sm transition-all">Save order</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-      <div class="flex gap-3 pt-2 pb-6">
-        <button
-          type="button"
-          id="btn-cancel-form"
-          class="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          id="btn-submit-form"
-          class="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium shadow-sm transition-all hover:shadow"
-        >
-          Save order
-        </button>
-      </div>
-    </form>
-  </aside>
-
-  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="script.js" defer></script>
 </body>
