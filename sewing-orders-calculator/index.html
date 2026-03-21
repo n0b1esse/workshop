@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Управление заказами</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f6f5f3;
+      --surface: #ffffff;
+      --text: #1a1a1a;
+      --muted: #6b6b6b;
+      --border: #e8e6e3;
+      --accent: #2d5a4a;
+      --accent-soft: rgba(45, 90, 74, 0.08);
+      --danger: #c43d3d;
+      --danger-soft: rgba(196, 61, 61, 0.08);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(45, 90, 74, 0.12), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 0%, rgba(0, 0, 0, 0.03), transparent);
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 3rem;
+    }
+
+    header {
+      margin-bottom: 2rem;
+      animation: fadeUp 0.55s var(--transition) both;
+    }
+
+    h1 {
+      font-size: clamp(1.65rem, 4vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 0 0 0.35rem;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin: 0;
+    }
+
+    .grid {
+      display: grid;
+      gap: 1.5rem;
+      grid-template-columns: 1fr;
+    }
+
+    @media (min-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr 1fr;
+        align-items: start;
+      }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.5rem 1.5rem 1.35rem;
+      transition: transform var(--transition), box-shadow var(--transition);
+    }
+
+    .card:hover {
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.08);
+    }
+
+    .card-form {
+      animation: fadeUp 0.55s 0.08s var(--transition) both;
+    }
+
+    .card-dash {
+      animation: fadeUp 0.55s 0.14s var(--transition) both;
+    }
+
+    .form-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin: 0 0 1rem;
+    }
+
+    .fields {
+      display: grid;
+      gap: 1rem;
+    }
+
+    @media (min-width: 520px) {
+      .fields {
+        grid-template-columns: 1fr 1fr;
+      }
+      .field-span {
+        grid-column: 1 / -1;
+      }
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font: inherit;
+      color: var(--text);
+      background: #fafaf9;
+      transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+    }
+
+    input:hover,
+    select:hover {
+      border-color: #d4d1cc;
+      background: #fff;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: #fff;
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .btn-add {
+      margin-top: 1.25rem;
+      width: 100%;
+      padding: 0.85rem 1.25rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+      background: linear-gradient(145deg, #356b58, var(--accent));
+      box-shadow: 0 2px 8px rgba(45, 90, 74, 0.35);
+      position: relative;
+      overflow: hidden;
+      transition: transform var(--transition), box-shadow var(--transition);
+    }
+
+    .btn-add::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+      transform: translateX(-100%);
+      transition: transform 0.5s ease;
+    }
+
+    .btn-add:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(45, 90, 74, 0.4);
+    }
+
+    .btn-add:hover::after {
+      transform: translateX(100%);
+    }
+
+    .btn-add:active {
+      transform: translateY(0);
+    }
+
+    .btn-add.pulse {
+      animation: btnPulse 0.45s ease;
+    }
+
+    @keyframes btnPulse {
+      0% { transform: scale(1); }
+      40% { transform: scale(0.98); }
+      100% { transform: scale(1); }
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.85rem;
+    }
+
+    @media (min-width: 520px) {
+      .dashboard {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .stat {
+      background: linear-gradient(180deg, #fafaf9 0%, #fff 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1rem 0.9rem;
+      transition: transform var(--transition), border-color var(--transition);
+    }
+
+    .stat:hover {
+      transform: translateY(-3px);
+      border-color: #d8d5d0;
+    }
+
+    .stat-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      transition: transform 0.35s ease;
+    }
+
+    .stat-value.tick {
+      animation: statTick 0.4s ease;
+    }
+
+    @keyframes statTick {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.06); }
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-top: 0.35rem;
+    }
+
+    .table-section {
+      margin-top: 1.5rem;
+      animation: fadeUp 0.55s 0.2s var(--transition) both;
+    }
+
+    .table-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.85rem;
+      flex-wrap: wrap;
+    }
+
+    .table-head h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .empty-hint {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-weight: 600;
+      background: #fafaf9;
+    }
+
+    tbody tr {
+      transition: background var(--transition);
+    }
+
+    tbody tr:hover {
+      background: rgba(45, 90, 74, 0.04);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr.row-in {
+      animation: rowIn 0.45s ease both;
+    }
+
+    @keyframes rowIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    tbody tr.row-out {
+      animation: rowOut 0.35s ease forwards;
+    }
+
+    @keyframes rowOut {
+      to {
+        opacity: 0;
+        transform: translateX(-12px);
+      }
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .badge-new { background: #e8f0ee; color: #2d5a4a; }
+    .badge-progress { background: #eef2fb; color: #3d5a9e; }
+    .badge-done { background: #e6f4ea; color: #1e7e3e; }
+    .badge-cancel { background: #f5e8e8; color: #a03030; }
+
+    .btn-del {
+      padding: 0.4rem 0.75rem;
+      font: inherit;
+      font-size: 0.8rem;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--danger);
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), transform var(--transition);
+    }
+
+    .btn-del:hover {
+      background: var(--danger-soft);
+      border-color: rgba(196, 61, 61, 0.35);
+      transform: scale(1.02);
+    }
+
+    .num {
+      font-variant-numeric: tabular-nums;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Управление заказами</h1>
+      <p class="subtitle">Калькулятор для посредника: выручка, прибыль и статусы в одном месте.</p>
+    </header>
+
+    <div class="grid">
+      <section class="card card-form" aria-labelledby="form-heading">
+        <p class="form-title" id="form-heading">Новый заказ</p>
+        <form id="order-form" novalidate>
+          <div class="fields">
+            <div class="field-span">
+              <label for="name">Название заказа</label>
+              <input type="text" id="name" name="name" required placeholder="Например, партия курток" autocomplete="off" />
+            </div>
+            <div>
+              <label for="customer">Заказчик</label>
+              <input type="text" id="customer" name="customer" required placeholder="Компания или ФИО" />
+            </div>
+            <div>
+              <label for="workshop">Цех</label>
+              <input type="text" id="workshop" name="workshop" required placeholder="Название цеха" />
+            </div>
+            <div>
+              <label for="qty">Количество</label>
+              <input type="number" id="qty" name="qty" min="1" step="1" value="1" required />
+            </div>
+            <div>
+              <label for="materials">Материалы (стоимость)</label>
+              <input type="number" id="materials" name="materials" min="0" step="0.01" value="0" required />
+            </div>
+            <div>
+              <label for="profit">Прибыль (на изделие)</label>
+              <input type="number" id="profit" name="profit" min="0" step="0.01" value="0" required />
+            </div>
+            <div class="field-span">
+              <label for="status">Статус</label>
+              <select id="status" name="status">
+                <option value="new">Новый</option>
+                <option value="progress">В работе</option>
+                <option value="done">Готов</option>
+                <option value="cancel">Отменён</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn-add" id="btn-add">Добавить заказ</button>
+        </form>
+      </section>
+
+      <section class="card card-dash" aria-labelledby="dash-heading">
+        <p class="form-title" id="dash-heading">Дашборд</p>
+        <div class="dashboard">
+          <div class="stat">
+            <div class="stat-value num" id="stat-orders">0</div>
+            <div class="stat-label">Всего заказов</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value num" id="stat-revenue">0</div>
+            <div class="stat-label">Выручка</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value num" id="stat-profit">0</div>
+            <div class="stat-label">Прибыль</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value num" id="stat-pct">0%</div>
+            <div class="stat-label">Готовых заказов</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="table-section" aria-labelledby="table-heading">
+      <div class="table-head">
+        <h2 id="table-heading">Список заказов</h2>
+        <p class="empty-hint" id="empty-hint">Добавьте первый заказ — строка появится с анимацией.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Заказ</th>
+              <th>Заказчик</th>
+              <th>Цех</th>
+              <th>Кол-во</th>
+              <th>Выручка</th>
+              <th>Прибыль</th>
+              <th>Статус</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="orders-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      const STATUS_LABELS = {
+        new: "Новый",
+        progress: "В работе",
+        done: "Готов",
+        cancel: "Отменён",
+      };
+
+      const STATUS_CLASS = {
+        new: "badge-new",
+        progress: "badge-progress",
+        done: "badge-done",
+        cancel: "badge-cancel",
+      };
+
+      /** @type {{ id: string, name: string, customer: string, workshop: string, qty: number, materials: number, profit: number, status: keyof STATUS_LABELS }[]} */
+      let orders = [];
+      let firstDashboardPaint = true;
+
+      const form = document.getElementById("order-form");
+      const btnAdd = document.getElementById("btn-add");
+      const tbody = document.getElementById("orders-body");
+      const emptyHint = document.getElementById("empty-hint");
+
+      const elOrders = document.getElementById("stat-orders");
+      const elRevenue = document.getElementById("stat-revenue");
+      const elProfit = document.getElementById("stat-profit");
+      const elPct = document.getElementById("stat-pct");
+
+      function formatMoney(n) {
+        return new Intl.NumberFormat("ru-RU", {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2,
+        }).format(n);
+      }
+
+      function revenueFor(o) {
+        return o.qty * (o.materials + o.profit);
+      }
+
+      function profitFor(o) {
+        return o.qty * o.profit;
+      }
+
+      function updateDashboard() {
+        const total = orders.length;
+        const revenue = orders.reduce((s, o) => s + revenueFor(o), 0);
+        const profit = orders.reduce((s, o) => s + profitFor(o), 0);
+        const done = orders.filter((o) => o.status === "done").length;
+        const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+
+        elOrders.textContent = String(total);
+        elRevenue.textContent = formatMoney(revenue);
+        elProfit.textContent = formatMoney(profit);
+        elPct.textContent = pct + "%";
+
+        if (!firstDashboardPaint) {
+          [elOrders, elRevenue, elProfit, elPct].forEach((el) => {
+            el.classList.remove("tick");
+            void el.offsetWidth;
+            el.classList.add("tick");
+          });
+        }
+        firstDashboardPaint = false;
+
+        emptyHint.style.display = total ? "none" : "block";
+      }
+
+      function rowInnerHtml(o) {
+        const rev = revenueFor(o);
+        const prof = profitFor(o);
+        return (
+          "<td>" +
+          escapeHtml(o.name) +
+          "</td>" +
+          "<td>" +
+          escapeHtml(o.customer) +
+          "</td>" +
+          "<td>" +
+          escapeHtml(o.workshop) +
+          "</td>" +
+          '<td class="num">' +
+          o.qty +
+          "</td>" +
+          '<td class="num">' +
+          formatMoney(rev) +
+          "</td>" +
+          '<td class="num">' +
+          formatMoney(prof) +
+          "</td>" +
+          "<td><span class=\"badge " +
+          STATUS_CLASS[o.status] +
+          '">' +
+          STATUS_LABELS[o.status] +
+          "</span></td>" +
+          '<td><button type="button" class="btn-del" data-del="' +
+          o.id +
+          '">Удалить</button></td>'
+        );
+      }
+
+      function escapeHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      function bindDeleteButtons() {
+        tbody.querySelectorAll(".btn-del").forEach((btn) => {
+          btn.addEventListener("click", onDelete);
+        });
+      }
+
+      function renderTable() {
+        tbody.innerHTML = orders
+          .map(function (o) {
+            return '<tr data-id="' + o.id + '">' + rowInnerHtml(o) + "</tr>";
+          })
+          .join("");
+        bindDeleteButtons();
+      }
+
+      function appendOrderRow(o, animate) {
+        const tr = document.createElement("tr");
+        tr.dataset.id = o.id;
+        if (animate) tr.classList.add("row-in");
+        tr.innerHTML = rowInnerHtml(o);
+        tbody.appendChild(tr);
+        tr.querySelector(".btn-del").addEventListener("click", onDelete);
+      }
+
+      function onDelete(e) {
+        const id = e.currentTarget.getAttribute("data-del");
+        const tr = tbody.querySelector('tr[data-id="' + id + '"]');
+        if (!tr) return;
+        tr.classList.remove("row-in");
+        tr.classList.add("row-out");
+        tr.addEventListener(
+          "animationend",
+          function handler() {
+            tr.removeEventListener("animationend", handler);
+            orders = orders.filter((o) => o.id !== id);
+            updateDashboard();
+            renderTable();
+          },
+          { once: true }
+        );
+      }
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const name = document.getElementById("name").value.trim();
+        const customer = document.getElementById("customer").value.trim();
+        const workshop = document.getElementById("workshop").value.trim();
+        const qty = Number(document.getElementById("qty").value);
+        const materials = Number(document.getElementById("materials").value);
+        const profit = Number(document.getElementById("profit").value);
+        /** @type {keyof STATUS_LABELS} */
+        const status = document.getElementById("status").value;
+
+        if (!name || !customer || !workshop || qty < 1 || materials < 0 || profit < 0) {
+          return;
+        }
+
+        const order = {
+          id: crypto.randomUUID(),
+          name,
+          customer,
+          workshop,
+          qty,
+          materials,
+          profit,
+          status,
+        };
+
+        orders.push(order);
+        btnAdd.classList.remove("pulse");
+        void btnAdd.offsetWidth;
+        btnAdd.classList.add("pulse");
+
+        updateDashboard();
+        appendOrderRow(order, true);
+
+        form.reset();
+        document.getElementById("qty").value = "1";
+        document.getElementById("materials").value = "0";
+        document.getElementById("profit").value = "0";
+      });
+
+      updateDashboard();
+    })();
+  </script>
+</body>
+</html>
