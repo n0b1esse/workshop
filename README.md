@@ -6,6 +6,6 @@
 
 Статическая страница для учёта заказов: выручка, прибыль, статусы.
 
-Откройте в браузере:
+**GitHub Pages:** [открыть калькулятор](https://n0b1esse.github.io/workshop/) — корень сайта перенаправляет на приложение.
 
-`sewing-orders-calculator/index.html`
+Локально: `sewing-orders-calculator/index.html`
