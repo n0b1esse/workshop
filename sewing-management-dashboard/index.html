@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sewing Operations — Management Dashboard</title>
+  <!-- Inter font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+          colors: {
+            sidebar: "#0f172a",
+            canvas: "#f1f5f9",
+            accent: { DEFAULT: "#059669", soft: "#d1fae5" },
+            indigo: { profit: "#4f46e5" },
+          },
+          boxShadow: {
+            card: "0 1px 2px 0 rgb(0 0 0 / 0.05), 0 1px 3px 0 rgb(0 0 0 / 0.08)",
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="font-sans antialiased text-slate-800 bg-slate-100 min-h-screen">
+  <div class="flex min-h-screen">
+    <!-- Dark sidebar -->
+    <aside
+      class="sidebar w-64 shrink-0 bg-slate-900 text-slate-200 flex flex-col border-r border-slate-800/80"
+      aria-label="Main navigation"
+    >
+      <div class="p-6 border-b border-slate-800/80">
+        <div class="flex items-center gap-3">
+          <div
+            class="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center text-white font-bold text-sm shadow-lg"
+          >
+            SO
+          </div>
+          <div>
+            <p class="text-xs uppercase tracking-wider text-slate-500 font-medium">Mediator</p>
+            <p class="font-semibold text-white">Sewing Ops</p>
+          </div>
+        </div>
+      </div>
+      <nav class="flex-1 p-4 space-y-1">
+        <a
+          href="#"
+          class="nav-item nav-item-active flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-800/80 text-white border border-slate-700/50"
+        >
+          <span class="nav-icon">◉</span>
+          <span>Orders</span>
+        </a>
+        <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white">
+          <span class="nav-icon opacity-70">◇</span>
+          <span>Analytics</span>
+        </a>
+        <a href="#" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white">
+          <span class="nav-icon opacity-70">⚙</span>
+          <span>Settings</span>
+        </a>
+      </nav>
+      <div class="p-4 border-t border-slate-800/80 text-xs text-slate-500">
+        <p>Local data · <span id="saved-indicator" class="text-emerald-400/90">Synced</span></p>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <header
+        class="sticky top-0 z-30 bg-slate-100/90 backdrop-blur-md border-b border-slate-200/80 px-6 py-4 flex flex-wrap items-center justify-between gap-4"
+      >
+        <div>
+          <h1 class="text-xl font-semibold text-slate-900 tracking-tight">Management Dashboard</h1>
+          <p class="text-sm text-slate-500 mt-0.5">Sewing business agent — pipeline &amp; margin control</p>
+        </div>
+        <button
+          type="button"
+          id="btn-open-form"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+        >
+          <span aria-hidden="true">+</span>
+          New order
+        </button>
+      </header>
+
+      <main class="flex-1 p-6 space-y-6 max-w-[1600px] mx-auto w-full">
+        <!-- KPI cards -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label="Key metrics">
+          <article
+            class="stat-card kpi-card bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-shadow duration-300"
+            data-kpi="orders"
+          >
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Total active orders</p>
+            <p class="mt-2 text-3xl font-bold text-slate-900 tabular-nums" id="kpi-active-orders">0</p>
+            <p class="mt-1 text-xs text-slate-400">Excludes shipped</p>
+          </article>
+          <article
+            class="stat-card kpi-card bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-shadow duration-300"
+            data-kpi="profit"
+          >
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Total net profit</p>
+            <p class="mt-2 text-3xl font-bold text-emerald-600 tabular-nums" id="kpi-net-profit">$0</p>
+            <p class="mt-1 text-xs text-slate-400">Sum across all projects</p>
+          </article>
+          <article
+            class="stat-card kpi-card bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-shadow duration-300"
+            data-kpi="margin"
+          >
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Average margin</p>
+            <p class="mt-2 text-3xl font-bold text-indigo-600 tabular-nums" id="kpi-avg-margin">0%</p>
+            <p class="mt-1 text-xs text-slate-400">Mean of project margins</p>
+          </article>
+          <article
+            class="stat-card kpi-card bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-shadow duration-300"
+            data-kpi="completion"
+          >
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Completion rate</p>
+            <p class="mt-2 text-3xl font-bold text-slate-900 tabular-nums" id="kpi-completion">0%</p>
+            <p class="mt-1 text-xs text-slate-400">Shipped / total</p>
+          </article>
+        </section>
+
+        <!-- Table -->
+        <section class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-sm font-semibold text-slate-900">Active orders</h2>
+            <p class="text-xs text-slate-500" id="orders-count-label">0 orders</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left min-w-[900px]">
+              <thead class="text-xs uppercase text-slate-500 bg-slate-50/80 border-b border-slate-100">
+                <tr>
+                  <th scope="col" class="px-5 py-3 font-medium">Project</th>
+                  <th scope="col" class="px-5 py-3 font-medium">Qty</th>
+                  <th scope="col" class="px-5 py-3 font-medium">Revenue</th>
+                  <th scope="col" class="px-5 py-3 font-medium">Net profit</th>
+                  <th scope="col" class="px-5 py-3 font-medium">Margin</th>
+                  <th scope="col" class="px-5 py-3 font-medium min-w-[200px]">Progress</th>
+                  <th scope="col" class="px-5 py-3 font-medium">Status</th>
+                  <th scope="col" class="px-5 py-3 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="orders-tbody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+          <p id="empty-state" class="hidden px-5 py-12 text-center text-slate-500 text-sm">
+            No orders yet. Create one with <strong>New order</strong>.
+          </p>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal overlay -->
+  <div
+    id="modal-backdrop"
+    class="modal-backdrop fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300"
+    aria-hidden="true"
+  ></div>
+
+  <!-- Order form panel (slide-over) -->
+  <aside
+    id="form-panel"
+    class="form-panel fixed top-0 right-0 z-50 h-full w-full max-w-md bg-white shadow-2xl border-l border-slate-200 translate-x-full transition-transform duration-300 ease-out flex flex-col"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="form-title"
+  >
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <h2 id="form-title" class="text-lg font-semibold text-slate-900">New order</h2>
+      <button
+        type="button"
+        id="btn-close-form"
+        class="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+        aria-label="Close"
+      >
+        ✕
+      </button>
+    </div>
+    <form id="order-form" class="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+      <input type="hidden" id="edit-id" name="editId" value="" />
+
+      <div>
+        <label for="project-name" class="block text-xs font-medium text-slate-600 mb-1.5">Project name</label>
+        <input
+          type="text"
+          id="project-name"
+          name="projectName"
+          required
+          maxlength="120"
+          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none transition-shadow"
+          placeholder="e.g. Spring jacket batch"
+        />
+      </div>
+
+      <fieldset class="space-y-2">
+        <legend class="text-xs font-medium text-slate-600 mb-2">Client budget</legend>
+        <div class="flex gap-4 text-sm">
+          <label class="inline-flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="budgetMode" value="perUnit" class="text-emerald-600" checked />
+            <span>Per unit ($)</span>
+          </label>
+          <label class="inline-flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="budgetMode" value="total" class="text-emerald-600" />
+            <span>Total ($)</span>
+          </label>
+        </div>
+        <input
+          type="number"
+          id="client-budget"
+          name="clientBudget"
+          required
+          min="0"
+          step="0.01"
+          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none"
+          placeholder="0.00"
+        />
+        <p class="text-xs text-slate-400" id="budget-hint">Unit price charged to client.</p>
+      </fieldset>
+
+      <div>
+        <label for="factory-price" class="block text-xs font-medium text-slate-600 mb-1.5">Factory price (per unit)</label>
+        <input
+          type="number"
+          id="factory-price"
+          name="factoryPrice"
+          required
+          min="0"
+          step="0.01"
+          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none"
+          placeholder="0.00"
+        />
+      </div>
+
+      <div>
+        <label for="quantity" class="block text-xs font-medium text-slate-600 mb-1.5">Total quantity</label>
+        <input
+          type="number"
+          id="quantity"
+          name="quantity"
+          required
+          min="1"
+          step="1"
+          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none"
+          placeholder="1"
+        />
+      </div>
+
+      <div>
+        <label for="material-costs" class="block text-xs font-medium text-slate-600 mb-1.5">Material costs (total)</label>
+        <input
+          type="number"
+          id="material-costs"
+          name="materialCosts"
+          required
+          min="0"
+          step="0.01"
+          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none"
+          placeholder="0.00"
+        />
+      </div>
+
+      <div>
+        <label for="status" class="block text-xs font-medium text-slate-600 mb-1.5">Status</label>
+        <select
+          id="status"
+          name="status"
+          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none"
+        >
+          <option value="Planning">Planning</option>
+          <option value="Cutting">Cutting</option>
+          <option value="Sewing">Sewing</option>
+          <option value="QC">QC</option>
+          <option value="Shipped">Shipped</option>
+        </select>
+      </div>
+
+      <p id="form-error" class="hidden text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2" role="alert"></p>
+
+      <div class="flex gap-3 pt-2 pb-6">
+        <button
+          type="button"
+          id="btn-cancel-form"
+          class="flex-1 py-2.5 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          id="btn-submit-form"
+          class="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium shadow-sm transition-all hover:shadow"
+        >
+          Save order
+        </button>
+      </div>
+    </form>
+  </aside>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="script.js" defer></script>
+</body>
+</html>
