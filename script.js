@@ -1,11 +1,21 @@
 /**
- * Garment production broker — SPA logic, charts, persistence
+ * Посредник по швейному производству — логика SPA, графики, localStorage
  */
 
 (function () {
   "use strict";
 
   const STORAGE_KEY = "garment-broker-spa-v1";
+
+  /** Подписи статусов на русском (значения в данных — на англ., для совместимости) */
+  const STATUS_LABELS = {
+    Negotiation: "Переговоры",
+    Materials: "Материалы",
+    Cutting: "Раскрой",
+    Sewing: "Пошив",
+    QC: "ОТК",
+    Finished: "Готово",
+  };
 
   /** @typedef {'Negotiation'|'Materials'|'Cutting'|'Sewing'|'QC'|'Finished'} OrderStatus */
 
@@ -42,6 +52,7 @@
 
   const els = {
     body: document.getElementById("orders-body"),
+    cards: document.getElementById("orders-cards"),
     empty: document.getElementById("empty-state"),
     count: document.getElementById("order-count"),
     kpiRevenue: document.getElementById("kpi-revenue"),
@@ -79,13 +90,30 @@
   }
 
   function formatMoney(n) {
-    const neg = n < 0;
-    const abs = Math.abs(n);
-    return (neg ? "−" : "") + "$" + abs.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    return new Intl.NumberFormat("ru-RU", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(n);
   }
 
   function formatPct(n) {
-    return n.toLocaleString("en-US", { maximumFractionDigits: 1 }) + "%";
+    return n.toLocaleString("ru-RU", { maximumFractionDigits: 1 }) + "%";
+  }
+
+  /** Склонение: «N заказов» */
+  function formatOrderCount(n) {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return n + " заказ";
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return n + " заказа";
+    return n + " заказов";
+  }
+
+  /** @param {string} key */
+  function statusLabel(key) {
+    return STATUS_LABELS[/** @type {keyof typeof STATUS_LABELS} */ (key)] || key;
   }
 
   /** Net margin color classes for table */
@@ -112,12 +140,12 @@
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
       if (els.sync) {
-        els.sync.textContent = "Synced";
+        els.sync.textContent = "Сохранено";
         els.sync.className = "text-emerald-400/90";
       }
     } catch (e) {
       if (els.sync) {
-        els.sync.textContent = "Error";
+        els.sync.textContent = "Ошибка";
         els.sync.className = "text-amber-400";
       }
     }
@@ -145,15 +173,15 @@
     els.kpiCosts.textContent = formatMoney(sumCost);
     els.kpiProfit.textContent = formatMoney(sumProfit);
     els.kpiProfit.className =
-      "mt-3 text-2xl sm:text-3xl font-bold tabular-nums " +
+      "mt-2 text-lg font-bold tabular-nums sm:mt-3 sm:text-2xl lg:text-3xl " +
       (sumProfit >= 0 ? "text-emerald-600" : "text-red-600");
     els.kpiMargin.textContent = formatPct(blendedMargin);
     els.kpiMargin.className =
-      "mt-3 text-2xl sm:text-3xl font-bold tabular-nums " +
+      "mt-2 text-lg font-bold tabular-nums sm:mt-3 sm:text-2xl lg:text-3xl " +
       (blendedMargin >= 0 ? "text-violet-700" : "text-red-600");
 
     const n = orders.length;
-    els.count.textContent = n === 1 ? "1 order" : n + " orders";
+    els.count.textContent = formatOrderCount(n);
   }
 
   function escapeHtml(s) {
@@ -172,7 +200,10 @@
   /** @param {Order} o */
   function renderPie(o) {
     const id = o.id;
-    const canvas = document.getElementById("chart-" + id);
+    const mobOpen = document.getElementById("ex-mob-" + id)?.classList.contains("is-open");
+    const canvas = mobOpen
+      ? document.getElementById("chart-mob-" + id)
+      : document.getElementById("chart-" + id);
     if (!canvas || typeof Chart === "undefined") return;
 
     destroyChart(id);
@@ -184,7 +215,7 @@
     const note = canvas.closest(".chart-box")?.querySelector(".chart-note");
     if (note) {
       if (prof < 0) {
-        note.textContent = "Negative profit — costs exceed client budget.";
+        note.textContent = "Отрицательная прибыль — затраты выше бюджета клиента.";
         note.classList.remove("hidden");
       } else {
         note.textContent = "";
@@ -194,7 +225,7 @@
 
     const profitSlice = Math.max(0, prof);
     const data = [mat, fac, profitSlice];
-    const labels = ["Materials", "Factory", "Profit"];
+    const labels = ["Материалы", "Цех", "Прибыль"];
 
     charts[id] = new Chart(canvas, {
       type: "pie",
@@ -227,7 +258,7 @@
                 const v = ctx.raw;
                 const i = ctx.dataIndex;
                 if (i === 2 && m.grossProfit < 0) {
-                  return "Profit: " + formatMoney(m.grossProfit);
+                  return "Прибыль: " + formatMoney(m.grossProfit);
                 }
                 return (ctx.label || "") + ": " + formatMoney(typeof v === "number" ? v : 0);
               },
@@ -235,7 +266,7 @@
           },
           title: {
             display: true,
-            text: "Cost breakdown",
+            text: "Структура затрат",
             font: { size: 12, weight: "600" },
             color: "#64748b",
             padding: { bottom: 8 },
@@ -247,6 +278,7 @@
 
   function renderTable() {
     els.body.innerHTML = "";
+    if (els.cards) els.cards.innerHTML = "";
     if (orders.length === 0) {
       els.empty.classList.remove("hidden");
       refreshIcons();
@@ -261,6 +293,7 @@
       const pct = Math.min(100, Math.max(0, o.progressPercent));
       const stClass = STATUS_STYLES[o.status] || STATUS_STYLES.Negotiation;
       const marginCls = marginClass(m.netMarginPct);
+      const stText = statusLabel(o.status);
 
       const tr = document.createElement("tr");
       tr.className = "order-row border-slate-100";
@@ -283,17 +316,17 @@
           <div class="progress-track" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
             <div class="progress-fill" style="width:${pct}%"></div>
           </div>
-          <span class="text-[10px] text-slate-400 mt-1 block tabular-nums">${pct}% · ${escapeHtml(o.status)}</span>
+          <span class="text-[10px] text-slate-400 mt-1 block tabular-nums">${pct}% · ${escapeHtml(stText)}</span>
         </td>
         <td class="px-4 py-3 align-top">
-          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${stClass}">${escapeHtml(o.status)}</span>
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${stClass}">${escapeHtml(stText)}</span>
         </td>
         <td class="px-4 py-3 text-right align-top whitespace-nowrap space-x-1">
           <button type="button" class="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50" data-act="edit" data-id="${o.id}">
-            <i data-lucide="pencil" class="h-3.5 w-3.5" aria-hidden="true"></i> Edit
+            <i data-lucide="pencil" class="h-3.5 w-3.5" aria-hidden="true"></i> Изменить
           </button>
           <button type="button" class="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" data-act="del" data-id="${o.id}">
-            <i data-lucide="trash-2" class="h-3.5 w-3.5" aria-hidden="true"></i> Delete
+            <i data-lucide="trash-2" class="h-3.5 w-3.5" aria-hidden="true"></i> Удалить
           </button>
         </td>
       `;
@@ -306,20 +339,20 @@
             <div class="order-expand-inner">
               <div class="px-4 sm:px-6 py-6 border-t border-slate-100 grid lg:grid-cols-2 gap-8 items-start">
                 <div class="text-sm space-y-3">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Financial detail</p>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Финансы по заказу</p>
                   <dl class="grid grid-cols-2 gap-x-4 gap-y-2 max-w-md">
-                    <dt class="text-slate-500">Revenue (client)</dt><dd class="text-right tabular-nums font-medium">${formatMoney(m.revenue)}</dd>
-                    <dt class="text-slate-500">Factory (qty × unit)</dt><dd class="text-right tabular-nums">${formatMoney(m.factoryTotal)}</dd>
-                    <dt class="text-slate-500">Materials</dt><dd class="text-right tabular-nums">${formatMoney(o.materialCosts)}</dd>
-                    <dt class="text-slate-500">Additional expenses</dt><dd class="text-right tabular-nums">${formatMoney(o.additionalExpenses)}</dd>
-                    <dt class="text-slate-500">Total costs</dt><dd class="text-right tabular-nums font-medium">${formatMoney(m.totalCosts)}</dd>
-                    <dt class="text-slate-500">Gross profit</dt><dd class="text-right tabular-nums font-semibold ${m.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(m.grossProfit)}</dd>
-                    <dt class="text-slate-500">Net margin</dt><dd class="text-right tabular-nums"><span class="inline-block text-sm ${marginCls}">${formatPct(m.netMarginPct)}</span></dd>
-                    <dt class="text-slate-500">Markup</dt><dd class="text-right tabular-nums text-slate-700">${formatPct(m.markupPct)}</dd>
+                    <dt class="text-slate-500">Выручка (клиент)</dt><dd class="text-right tabular-nums font-medium">${formatMoney(m.revenue)}</dd>
+                    <dt class="text-slate-500">Цех (кол-во × цена)</dt><dd class="text-right tabular-nums">${formatMoney(m.factoryTotal)}</dd>
+                    <dt class="text-slate-500">Материалы</dt><dd class="text-right tabular-nums">${formatMoney(o.materialCosts)}</dd>
+                    <dt class="text-slate-500">Доп. расходы</dt><dd class="text-right tabular-nums">${formatMoney(o.additionalExpenses)}</dd>
+                    <dt class="text-slate-500">Затраты всего</dt><dd class="text-right tabular-nums font-medium">${formatMoney(m.totalCosts)}</dd>
+                    <dt class="text-slate-500">Валовая прибыль</dt><dd class="text-right tabular-nums font-semibold ${m.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(m.grossProfit)}</dd>
+                    <dt class="text-slate-500">Чистая маржа</dt><dd class="text-right tabular-nums"><span class="inline-block text-sm ${marginCls}">${formatPct(m.netMarginPct)}</span></dd>
+                    <dt class="text-slate-500">Наценка</dt><dd class="text-right tabular-nums text-slate-700">${formatPct(m.markupPct)}</dd>
                   </dl>
                 </div>
                 <div class="chart-box">
-                  <canvas id="chart-${o.id}" height="220" aria-label="Cost breakdown pie chart"></canvas>
+                  <canvas id="chart-${o.id}" height="220" aria-label="Диаграмма структуры затрат"></canvas>
                   <p class="chart-note hidden text-xs text-center text-red-600 mt-2"></p>
                 </div>
               </div>
@@ -330,6 +363,78 @@
 
       els.body.appendChild(tr);
       els.body.appendChild(trExp);
+
+      if (els.cards) {
+        const card = document.createElement("div");
+        card.className =
+          "order-card-mob rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-4";
+        card.innerHTML = `
+          <button type="button" class="expand-btn flex w-full items-start gap-2 text-left" data-id="${o.id}" aria-expanded="false">
+            <i data-lucide="chevron-right" class="icon-chevron mt-0.5 h-5 w-5 shrink-0 text-slate-400 transition-transform duration-300" aria-hidden="true"></i>
+            <span class="min-w-0 flex-1">
+              <span class="block font-semibold text-slate-900">${escapeHtml(o.orderName)}</span>
+              <span class="mt-0.5 block text-xs text-slate-500">${escapeHtml(o.clientName)} · ${escapeHtml(o.factoryName)}</span>
+            </span>
+          </button>
+          <div class="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p class="text-[10px] uppercase tracking-wide text-slate-400">Выручка</p>
+              <p class="mt-0.5 font-semibold tabular-nums text-slate-900">${formatMoney(m.revenue)}</p>
+            </div>
+            <div>
+              <p class="text-[10px] uppercase tracking-wide text-slate-400">Затраты</p>
+              <p class="mt-0.5 font-medium tabular-nums text-slate-700">${formatMoney(m.totalCosts)}</p>
+            </div>
+            <div>
+              <p class="text-[10px] uppercase tracking-wide text-slate-400">Прибыль</p>
+              <p class="mt-0.5 font-semibold tabular-nums ${m.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(m.grossProfit)}</p>
+            </div>
+            <div>
+              <p class="text-[10px] uppercase tracking-wide text-slate-400">Маржа</p>
+              <p class="mt-0.5"><span class="inline-block text-sm tabular-nums ${marginCls}">${formatPct(m.netMarginPct)}</span></p>
+            </div>
+          </div>
+          <div class="mt-3">
+            <div class="progress-track h-2" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-fill" style="width:${pct}%"></div>
+            </div>
+            <p class="mt-1 text-[11px] text-slate-400 tabular-nums">${pct}% · ${escapeHtml(stText)}</p>
+          </div>
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${stClass}">${escapeHtml(stText)}</span>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" class="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 py-2 text-sm font-medium text-indigo-700 active:bg-indigo-100" data-act="edit" data-id="${o.id}">
+              <i data-lucide="pencil" class="h-4 w-4" aria-hidden="true"></i> Изменить
+            </button>
+            <button type="button" class="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 py-2 text-sm font-medium text-red-700 active:bg-red-100" data-act="del" data-id="${o.id}">
+              <i data-lucide="trash-2" class="h-4 w-4" aria-hidden="true"></i> Удалить
+            </button>
+          </div>
+          <div class="order-expand mt-3" id="ex-mob-${o.id}">
+            <div class="order-expand-inner">
+              <div class="rounded-xl border border-slate-100 bg-slate-50/90 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Финансы по заказу</p>
+                <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                  <dt class="text-slate-500">Выручка (клиент)</dt><dd class="text-right tabular-nums font-medium">${formatMoney(m.revenue)}</dd>
+                  <dt class="text-slate-500">Цех (кол-во × цена)</dt><dd class="text-right tabular-nums">${formatMoney(m.factoryTotal)}</dd>
+                  <dt class="text-slate-500">Материалы</dt><dd class="text-right tabular-nums">${formatMoney(o.materialCosts)}</dd>
+                  <dt class="text-slate-500">Доп. расходы</dt><dd class="text-right tabular-nums">${formatMoney(o.additionalExpenses)}</dd>
+                  <dt class="text-slate-500">Затраты всего</dt><dd class="text-right tabular-nums font-medium">${formatMoney(m.totalCosts)}</dd>
+                  <dt class="text-slate-500">Валовая прибыль</dt><dd class="text-right tabular-nums font-semibold ${m.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}">${formatMoney(m.grossProfit)}</dd>
+                  <dt class="text-slate-500">Чистая маржа</dt><dd class="text-right"><span class="inline-block text-sm ${marginCls}">${formatPct(m.netMarginPct)}</span></dd>
+                  <dt class="text-slate-500">Наценка</dt><dd class="text-right tabular-nums text-slate-700">${formatPct(m.markupPct)}</dd>
+                </dl>
+                <div class="chart-box mt-4 w-full">
+                  <canvas id="chart-mob-${o.id}" height="200" aria-label="Диаграмма структуры затрат"></canvas>
+                  <p class="chart-note mt-2 hidden text-center text-xs text-red-600"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        els.cards.appendChild(card);
+      }
     });
 
     bindRows();
@@ -337,16 +442,16 @@
   }
 
   function bindRows() {
-    els.body.querySelectorAll(".expand-btn").forEach((btn) => {
+    document.querySelectorAll(".expand-btn").forEach((btn) => {
       btn.addEventListener("click", onExpand);
     });
-    els.body.querySelectorAll("[data-act='edit']").forEach((b) => {
+    document.querySelectorAll("[data-act='edit']").forEach((b) => {
       b.addEventListener("click", (e) => {
         e.stopPropagation();
         openEdit(b.getAttribute("data-id"));
       });
     });
-    els.body.querySelectorAll("[data-act='del']").forEach((b) => {
+    document.querySelectorAll("[data-act='del']").forEach((b) => {
       b.addEventListener("click", (e) => {
         e.stopPropagation();
         removeOrder(b.getAttribute("data-id"));
@@ -358,7 +463,10 @@
   function onExpand(e) {
     const btn = e.currentTarget;
     const id = btn.getAttribute("data-id");
-    const wrap = document.getElementById("ex-" + id);
+    if (!id) return;
+    const inCards = Boolean(btn.closest("#orders-cards"));
+    const wrap = inCards ? document.getElementById("ex-mob-" + id) : document.getElementById("ex-" + id);
+    if (!wrap) return;
     const chev = btn.querySelector(".icon-chevron");
     const open = wrap.classList.contains("is-open");
 
@@ -377,14 +485,15 @@
   }
 
   function openModal(isEdit) {
+    closeSidebarUi();
     els.backdrop.classList.add("is-open");
     els.backdrop.setAttribute("aria-hidden", "false");
     els.panel.classList.add("is-open");
     els.panel.classList.remove("scale-95", "opacity-0", "pointer-events-none");
     els.panel.classList.add("scale-100", "opacity-100", "pointer-events-auto");
-    els.title.textContent = isEdit ? "Edit order" : "New order";
-    els.submit.textContent = isEdit ? "Update" : "Save order";
-    document.body.style.overflow = "hidden";
+    els.title.textContent = isEdit ? "Редактировать заказ" : "Новый заказ";
+    els.submit.textContent = isEdit ? "Обновить" : "Сохранить";
+    document.body.classList.add("sidebar-lock");
     refreshIcons();
   }
 
@@ -393,8 +502,40 @@
     els.backdrop.setAttribute("aria-hidden", "true");
     els.panel.classList.remove("is-open", "scale-100", "opacity-100", "pointer-events-auto");
     els.panel.classList.add("scale-95", "opacity-0", "pointer-events-none");
-    document.body.style.overflow = "";
+    document.body.classList.remove("sidebar-lock");
     hideErr();
+  }
+
+  function closeSidebarUi() {
+    const sidebar = document.getElementById("sidebar");
+    const sbBackdrop = document.getElementById("sidebar-backdrop");
+    const menuBtn = document.getElementById("btn-menu");
+    if (sidebar) sidebar.classList.remove("is-open");
+    if (sbBackdrop) {
+      sbBackdrop.classList.remove("is-open");
+      sbBackdrop.setAttribute("aria-hidden", "true");
+    }
+    if (menuBtn) menuBtn.setAttribute("aria-expanded", "false");
+    if (window.innerWidth < 1024) document.body.classList.remove("sidebar-lock");
+  }
+
+  function openSidebarUi() {
+    const sidebar = document.getElementById("sidebar");
+    const sbBackdrop = document.getElementById("sidebar-backdrop");
+    const menuBtn = document.getElementById("btn-menu");
+    if (sidebar) sidebar.classList.add("is-open");
+    if (sbBackdrop) {
+      sbBackdrop.classList.add("is-open");
+      sbBackdrop.setAttribute("aria-hidden", "false");
+    }
+    if (menuBtn) menuBtn.setAttribute("aria-expanded", "true");
+    if (window.innerWidth < 1024) document.body.classList.add("sidebar-lock");
+  }
+
+  function toggleSidebarUi() {
+    const sidebar = document.getElementById("sidebar");
+    if (sidebar && sidebar.classList.contains("is-open")) closeSidebarUi();
+    else openSidebarUi();
   }
 
   function hideErr() {
@@ -436,7 +577,7 @@
 
   /** @param {string|null} id */
   function removeOrder(id) {
-    if (!id || !confirm("Delete this order?")) return;
+    if (!id || !confirm("Удалить этот заказ?")) return;
     destroyChart(id);
     orders = orders.filter((o) => o.id !== id);
     save();
@@ -463,27 +604,27 @@
     const edit = els.editId.value.trim();
 
     if (!orderName || !clientName) {
-      showErr("Order name and client name are required.");
+      showErr("Укажите название заказа и клиента.");
       return;
     }
     if (Number.isNaN(clientBudget) || clientBudget < 0) {
-      showErr("Client budget must be a valid non-negative number.");
+      showErr("Бюджет клиента должен быть неотрицательным числом.");
       return;
     }
     if (!factoryName) {
-      showErr("Factory / workshop name is required.");
+      showErr("Укажите название цеха или фабрики.");
       return;
     }
     if (Number.isNaN(quantity) || quantity < 1) {
-      showErr("Quantity must be at least 1.");
+      showErr("Количество не меньше 1.");
       return;
     }
     if (Number.isNaN(factoryPrice) || factoryPrice < 0) {
-      showErr("Factory price per unit must be valid.");
+      showErr("Укажите корректную цену цеха за единицу.");
       return;
     }
     if (Number.isNaN(materialCosts) || materialCosts < 0 || Number.isNaN(extra) || extra < 0) {
-      showErr("Material costs and additional expenses must be valid non-negative numbers.");
+      showErr("Материалы и доп. расходы — неотрицательные числа.");
       return;
     }
 
@@ -536,7 +677,22 @@
     els.progress.addEventListener("input", onProgressInput);
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && els.panel.classList.contains("is-open")) closeModal();
+      if (e.key === "Escape") {
+        if (els.panel.classList.contains("is-open")) closeModal();
+        else closeSidebarUi();
+      }
+    });
+
+    const btnMenu = document.getElementById("btn-menu");
+    const sbBackdrop = document.getElementById("sidebar-backdrop");
+    if (btnMenu) btnMenu.addEventListener("click", toggleSidebarUi);
+    if (sbBackdrop) sbBackdrop.addEventListener("click", closeSidebarUi);
+
+    document.querySelectorAll("#sidebar .nav-link").forEach((link) => {
+      link.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        closeSidebarUi();
+      });
     });
   }
 

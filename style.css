@@ -14,6 +14,38 @@ body {
   font-feature-settings: "tnum" 1, "lnum" 1;
 }
 
+body.sidebar-lock {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* Мобильный drawer: открытие поверх контента */
+@media (max-width: 1023px) {
+  #sidebar.is-open {
+    transform: translate3d(0, 0, 0);
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.2);
+  }
+}
+
+.sidebar-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Нижний отступ под iPhone home indicator */
+.safe-pb {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* Карточка заказа (телефон) */
+.order-card-mob {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.order-card-mob:active {
+  transform: scale(0.995);
+}
+
 /* Sidebar subtle gradient */
 .sidebar {
   background: linear-gradient(180deg, #0f172a 0%, #0c1222 100%);
@@ -109,9 +141,15 @@ body {
 
 /* Chart */
 .chart-box {
-  max-width: 260px;
+  max-width: min(260px, 100%);
   margin-left: auto;
   margin-right: auto;
+}
+
+@media (max-width: 767px) {
+  .chart-box {
+    max-width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

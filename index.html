@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Garment Broker — Production Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Посредник по швейному производству — панель управления</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -24,207 +24,229 @@
   </script>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body class="font-sans antialiased text-slate-800 bg-slate-100 min-h-screen">
-  <div class="flex min-h-screen">
-    <!-- Sidebar -->
-    <aside class="sidebar w-64 shrink-0 bg-slate-900 text-slate-200 flex flex-col border-r border-slate-800">
+<body class="font-sans antialiased text-slate-800 bg-slate-100 min-h-screen pb-[env(safe-area-inset-bottom)]">
+  <!-- Затемнение под мобильное меню -->
+  <div
+    id="sidebar-backdrop"
+    class="sidebar-backdrop fixed inset-0 z-[60] bg-slate-900/50 lg:hidden opacity-0 pointer-events-none transition-opacity duration-300"
+    aria-hidden="true"
+  ></div>
+
+  <div class="flex min-h-screen min-h-[100dvh]">
+    <aside
+      id="sidebar"
+      class="sidebar fixed inset-y-0 left-0 z-[70] flex w-[min(17.5rem,88vw)] shrink-0 -translate-x-full flex-col border-r border-slate-800 bg-slate-900 text-slate-200 transition-transform duration-300 ease-out lg:relative lg:z-0 lg:w-64 lg:translate-x-0"
+      aria-label="Боковое меню"
+    >
       <div class="p-6 border-b border-slate-800/80">
         <div class="flex items-center gap-3">
           <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg">
             <i data-lucide="shirt" class="h-5 w-5 text-white" aria-hidden="true"></i>
           </div>
           <div>
-            <p class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Broker</p>
-            <p class="font-semibold text-white tracking-tight">Garment Ops</p>
+            <p class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Посредник</p>
+            <p class="font-semibold text-white tracking-tight">Швейное производство</p>
           </div>
         </div>
       </div>
-      <nav class="flex-1 p-3 space-y-0.5" aria-label="Primary">
+      <nav class="flex-1 p-3 space-y-0.5" aria-label="Основное меню">
         <a href="#" class="nav-link flex items-center gap-3 rounded-lg bg-slate-800/90 px-3 py-2.5 text-white border border-slate-700/50">
           <i data-lucide="layout-dashboard" class="h-4 w-4 shrink-0 opacity-90" aria-hidden="true"></i>
-          <span class="text-sm font-medium">Dashboard</span>
+          <span class="text-sm font-medium">Дашборд</span>
         </a>
         <a href="#" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors">
           <i data-lucide="package" class="h-4 w-4 shrink-0" aria-hidden="true"></i>
-          <span class="text-sm">Orders</span>
+          <span class="text-sm">Заказы</span>
         </a>
         <a href="#" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors">
           <i data-lucide="building-2" class="h-4 w-4 shrink-0" aria-hidden="true"></i>
-          <span class="text-sm">Workshops</span>
+          <span class="text-sm">Цеха</span>
         </a>
         <a href="#" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors">
           <i data-lucide="settings" class="h-4 w-4 shrink-0" aria-hidden="true"></i>
-          <span class="text-sm">Settings</span>
+          <span class="text-sm">Настройки</span>
         </a>
       </nav>
       <div class="p-4 border-t border-slate-800/80 text-xs text-slate-500 flex items-center gap-2">
         <i data-lucide="hard-drive" class="h-3.5 w-3.5 text-emerald-500/90" aria-hidden="true"></i>
-        <span>Local storage · <span id="sync-label" class="text-emerald-400/90">Synced</span></span>
+        <span>Локальные данные · <span id="sync-label" class="text-emerald-400/90">Сохранено</span></span>
       </div>
     </aside>
 
-    <!-- Main -->
-    <div class="flex-1 flex flex-col min-w-0">
-      <header class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 class="text-xl font-semibold text-slate-900 tracking-tight">Production overview</h1>
-          <p class="text-sm text-slate-500 mt-0.5">Garment production broker — orders &amp; margin control</p>
+    <div class="flex min-w-0 flex-1 flex-col lg:min-h-screen">
+      <header
+        class="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-slate-200/80 bg-white/95 px-3 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-white/90 sm:gap-4 sm:px-6 sm:py-4 md:px-8"
+      >
+        <button
+          type="button"
+          id="btn-menu"
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] lg:hidden"
+          aria-expanded="false"
+          aria-controls="sidebar"
+          aria-label="Открыть меню"
+        >
+          <i data-lucide="menu" class="h-5 w-5" aria-hidden="true"></i>
+        </button>
+        <div class="min-w-0 flex-1">
+          <h1 class="truncate text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">Панель управления</h1>
+          <p class="mt-0.5 hidden text-sm text-slate-500 sm:block">Посредник в швейном производстве — заказы и маржа</p>
         </div>
         <button
           type="button"
           id="btn-new-order"
-          class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all hover:shadow-md"
+          class="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 active:scale-[0.98] sm:gap-2 sm:px-4"
         >
-          <i data-lucide="plus" class="h-4 w-4" aria-hidden="true"></i>
-          New order
+          <i data-lucide="plus" class="h-4 w-4 shrink-0" aria-hidden="true"></i>
+          <span class="hidden sm:inline">Новый заказ</span>
+          <span class="inline sm:hidden">Новый</span>
         </button>
       </header>
 
-      <main class="flex-1 p-4 sm:p-8 max-w-[1600px] mx-auto w-full space-y-8">
-        <!-- KPI cards -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" id="kpi-section" aria-label="Summary metrics">
-          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-5 shadow-card hover:shadow-card-hover transition-all duration-300">
+      <main class="mx-auto w-full max-w-[1600px] flex-1 space-y-6 px-3 py-4 sm:space-y-8 sm:p-6 md:p-8">
+        <section class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4" id="kpi-section" aria-label="Сводные показатели">
+          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition-all duration-300 sm:p-5 hover:shadow-card-hover">
             <div class="flex items-start justify-between gap-2">
-              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total revenue</p>
-              <span class="rounded-lg bg-indigo-50 p-2 text-indigo-600"><i data-lucide="banknote" class="h-4 w-4" aria-hidden="true"></i></span>
+              <p class="text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-500 sm:text-xs">Выручка всего</p>
+              <span class="rounded-lg bg-indigo-50 p-1.5 text-indigo-600 sm:p-2"><i data-lucide="banknote" class="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true"></i></span>
             </div>
-            <p class="mt-3 text-2xl sm:text-3xl font-bold text-slate-900 tabular-nums" id="kpi-revenue">$0</p>
-            <p class="mt-1 text-xs text-slate-400">Sum of client budgets</p>
+            <p class="mt-2 text-lg font-bold tabular-nums text-slate-900 sm:mt-3 sm:text-2xl lg:text-3xl" id="kpi-revenue">0&nbsp;$</p>
+            <p class="mt-0.5 text-[10px] leading-snug text-slate-400 sm:mt-1 sm:text-xs">Сумма бюджетов клиентов</p>
           </article>
-          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-5 shadow-card hover:shadow-card-hover transition-all duration-300">
+          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition-all duration-300 sm:p-5 hover:shadow-card-hover">
             <div class="flex items-start justify-between gap-2">
-              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total costs</p>
-              <span class="rounded-lg bg-slate-100 p-2 text-slate-600"><i data-lucide="receipt" class="h-4 w-4" aria-hidden="true"></i></span>
+              <p class="text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-500 sm:text-xs">Затраты всего</p>
+              <span class="rounded-lg bg-slate-100 p-1.5 text-slate-600 sm:p-2"><i data-lucide="receipt" class="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true"></i></span>
             </div>
-            <p class="mt-3 text-2xl sm:text-3xl font-bold text-slate-800 tabular-nums" id="kpi-costs">$0</p>
-            <p class="mt-1 text-xs text-slate-400">Factory + materials + expenses</p>
+            <p class="mt-2 text-lg font-bold tabular-nums text-slate-800 sm:mt-3 sm:text-2xl lg:text-3xl" id="kpi-costs">0&nbsp;$</p>
+            <p class="mt-0.5 text-[10px] leading-snug text-slate-400 sm:mt-1 sm:text-xs">Цех + материалы + прочие</p>
           </article>
-          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-5 shadow-card hover:shadow-card-hover transition-all duration-300">
+          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition-all duration-300 sm:p-5 hover:shadow-card-hover">
             <div class="flex items-start justify-between gap-2">
-              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Gross profit</p>
-              <span class="rounded-lg bg-emerald-50 p-2 text-emerald-600"><i data-lucide="trending-up" class="h-4 w-4" aria-hidden="true"></i></span>
+              <p class="text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-500 sm:text-xs">Валовая прибыль</p>
+              <span class="rounded-lg bg-emerald-50 p-1.5 text-emerald-600 sm:p-2"><i data-lucide="trending-up" class="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true"></i></span>
             </div>
-            <p class="mt-3 text-2xl sm:text-3xl font-bold tabular-nums" id="kpi-profit">$0</p>
-            <p class="mt-1 text-xs text-slate-400">Revenue − total costs</p>
+            <p class="mt-2 text-lg font-bold tabular-nums sm:mt-3 sm:text-2xl lg:text-3xl" id="kpi-profit">0&nbsp;$</p>
+            <p class="mt-0.5 text-[10px] leading-snug text-slate-400 sm:mt-1 sm:text-xs">Выручка − затраты</p>
           </article>
-          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-5 shadow-card hover:shadow-card-hover transition-all duration-300">
+          <article class="kpi-card group rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition-all duration-300 sm:p-5 hover:shadow-card-hover">
             <div class="flex items-start justify-between gap-2">
-              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Net margin</p>
-              <span class="rounded-lg bg-violet-50 p-2 text-violet-600"><i data-lucide="percent" class="h-4 w-4" aria-hidden="true"></i></span>
+              <p class="text-[10px] font-semibold uppercase leading-tight tracking-wide text-slate-500 sm:text-xs">Чистая маржа</p>
+              <span class="rounded-lg bg-violet-50 p-1.5 text-violet-600 sm:p-2"><i data-lucide="percent" class="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true"></i></span>
             </div>
-            <p class="mt-3 text-2xl sm:text-3xl font-bold text-violet-700 tabular-nums" id="kpi-margin">0%</p>
-            <p class="mt-1 text-xs text-slate-400">Blended (all orders)</p>
+            <p class="mt-2 text-lg font-bold tabular-nums text-violet-700 sm:mt-3 sm:text-2xl lg:text-3xl" id="kpi-margin">0%</p>
+            <p class="mt-0.5 text-[10px] leading-snug text-slate-400 sm:mt-1 sm:text-xs">Сводно по всем заказам</p>
           </article>
         </section>
 
-        <!-- Table -->
-        <section class="rounded-xl border border-slate-200/80 bg-white shadow-card overflow-hidden">
-          <div class="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-slate-100">
-            <h2 class="text-sm font-semibold text-slate-900">Orders</h2>
-            <p class="text-xs text-slate-500" id="order-count">0 orders</p>
+        <section class="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-card">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
+            <h2 class="text-sm font-semibold text-slate-900">Заказы</h2>
+            <p class="text-xs text-slate-500" id="order-count">0 заказов</p>
           </div>
-          <div class="overflow-x-auto">
-            <table class="w-full min-w-[1000px] text-sm text-left">
+          <!-- Карточки: телефоны -->
+          <div id="orders-cards" class="md:hidden space-y-3 px-3 py-3 sm:px-4"></div>
+          <div class="hidden overflow-x-auto md:block">
+            <table class="w-full min-w-[1000px] text-left text-sm">
               <thead class="text-xs uppercase text-slate-500 bg-slate-50/90 border-b border-slate-100">
                 <tr>
-                  <th class="px-4 sm:px-6 py-3 font-semibold">Order / Client</th>
-                  <th class="px-4 py-3 font-semibold">Workshop</th>
-                  <th class="px-4 py-3 font-semibold tabular-nums">Revenue</th>
-                  <th class="px-4 py-3 font-semibold tabular-nums">Costs</th>
-                  <th class="px-4 py-3 font-semibold tabular-nums">Profit</th>
-                  <th class="px-4 py-3 font-semibold">Margin</th>
-                  <th class="px-4 py-3 font-semibold min-w-[180px]">Progress</th>
-                  <th class="px-4 py-3 font-semibold">Status</th>
-                  <th class="px-4 py-3 font-semibold text-right">Actions</th>
+                  <th class="px-4 sm:px-6 py-3 font-semibold">Заказ / клиент</th>
+                  <th class="px-4 py-3 font-semibold">Цех</th>
+                  <th class="px-4 py-3 font-semibold tabular-nums">Выручка</th>
+                  <th class="px-4 py-3 font-semibold tabular-nums">Затраты</th>
+                  <th class="px-4 py-3 font-semibold tabular-nums">Прибыль</th>
+                  <th class="px-4 py-3 font-semibold">Маржа</th>
+                  <th class="px-4 py-3 font-semibold min-w-[180px]">Прогресс</th>
+                  <th class="px-4 py-3 font-semibold">Статус</th>
+                  <th class="px-4 py-3 font-semibold text-right">Действия</th>
                 </tr>
               </thead>
               <tbody id="orders-body" class="divide-y divide-slate-100"></tbody>
             </table>
           </div>
-          <div id="empty-state" class="hidden px-6 py-16 text-center">
+          <div id="empty-state" class="hidden px-4 py-12 text-center sm:px-6 sm:py-16">
             <i data-lucide="inbox" class="h-12 w-12 mx-auto text-slate-300 mb-3" aria-hidden="true"></i>
-            <p class="text-slate-500 text-sm">No orders yet. Create one with <strong class="text-slate-700">New order</strong>.</p>
+            <p class="text-slate-500 text-sm">Пока нет заказов. Создайте через <strong class="text-slate-700">Новый заказ</strong>.</p>
           </div>
         </section>
       </main>
     </div>
   </div>
 
-  <!-- Modal backdrop -->
   <div
     id="modal-backdrop"
-    class="modal-backdrop fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-[2px] opacity-0 pointer-events-none transition-opacity duration-300"
+    class="modal-backdrop fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-[2px] opacity-0 pointer-events-none transition-opacity duration-300"
     aria-hidden="true"
   ></div>
 
-  <!-- Modal panel -->
   <div
     id="modal-panel"
-    class="modal-panel fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 scale-95 opacity-0 pointer-events-none transition-all duration-300"
+    class="modal-panel fixed inset-0 z-[100] flex scale-95 items-end justify-center p-0 opacity-0 pointer-events-none transition-all duration-300 md:items-center md:p-4"
     role="dialog"
     aria-modal="true"
     aria-labelledby="modal-title"
   >
-    <div class="rounded-2xl border border-slate-200 bg-white shadow-2xl max-h-[min(90vh,720px)] flex flex-col overflow-hidden">
+    <div
+      class="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl md:max-h-[min(90vh,720px)] md:rounded-2xl"
+    >
       <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-        <h2 id="modal-title" class="text-lg font-semibold text-slate-900">New order</h2>
-        <button type="button" id="modal-close" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors" aria-label="Close">
+        <h2 id="modal-title" class="text-lg font-semibold text-slate-900">Новый заказ</h2>
+        <button type="button" id="modal-close" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors" aria-label="Закрыть">
           <i data-lucide="x" class="h-5 w-5" aria-hidden="true"></i>
         </button>
       </div>
-      <form id="order-form" class="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+      <form id="order-form" class="safe-pb flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
         <input type="hidden" id="edit-id" name="editId" value="" />
 
         <div class="space-y-3">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Order info</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Заказ</p>
           <div>
-            <label for="order-name" class="block text-xs font-medium text-slate-600 mb-1">Order name</label>
-            <input type="text" id="order-name" required maxlength="160" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="e.g. SS26 Linen batch" />
+            <label for="order-name" class="block text-xs font-medium text-slate-600 mb-1">Название заказа</label>
+            <input type="text" id="order-name" required maxlength="160" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Например, партия платьев SS26" />
           </div>
           <div>
-            <label for="client-name" class="block text-xs font-medium text-slate-600 mb-1">Client name</label>
-            <input type="text" id="client-name" required maxlength="160" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Company or contact" />
-          </div>
-        </div>
-
-        <div class="space-y-3 pt-1">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Client side</p>
-          <div>
-            <label for="client-budget" class="block text-xs font-medium text-slate-600 mb-1">Total budget from client (revenue)</label>
-            <input type="number" id="client-budget" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="0.00" />
+            <label for="client-name" class="block text-xs font-medium text-slate-600 mb-1">Клиент</label>
+            <input type="text" id="client-name" required maxlength="160" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Компания или контакт" />
           </div>
         </div>
 
         <div class="space-y-3 pt-1">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Production &amp; costs</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Со стороны клиента</p>
           <div>
-            <label for="factory-name" class="block text-xs font-medium text-slate-600 mb-1">Factory / workshop</label>
-            <input type="text" id="factory-name" required maxlength="160" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Workshop name" />
+            <label for="client-budget" class="block text-xs font-medium text-slate-600 mb-1">Общий бюджет клиента (выручка)</label>
+            <input type="number" id="client-budget" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="0,00" />
           </div>
-          <div class="grid grid-cols-2 gap-3">
+        </div>
+
+        <div class="space-y-3 pt-1">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Производство и затраты</p>
+          <div>
+            <label for="factory-name" class="block text-xs font-medium text-slate-600 mb-1">Цех / фабрика</label>
+            <input type="text" id="factory-name" required maxlength="160" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Название цеха" />
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label for="quantity" class="block text-xs font-medium text-slate-600 mb-1">Quantity</label>
-              <input type="number" id="quantity" required min="1" step="1" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" value="1" />
+              <label for="quantity" class="block text-xs font-medium text-slate-600 mb-1">Количество</label>
+              <input type="number" id="quantity" required min="1" step="1" class="input-field min-h-[44px] w-full rounded-lg border border-slate-200 px-3 py-2 text-base tabular-nums sm:text-sm" value="1" />
             </div>
             <div>
-              <label for="factory-price" class="block text-xs font-medium text-slate-600 mb-1">Factory price / unit</label>
-              <input type="number" id="factory-price" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="0.00" />
+              <label for="factory-price" class="block text-xs font-medium text-slate-600 mb-1">Цена цеха за ед.</label>
+              <input type="number" id="factory-price" required min="0" step="0.01" class="input-field min-h-[44px] w-full rounded-lg border border-slate-200 px-3 py-2 text-base tabular-nums sm:text-sm" placeholder="0,00" />
             </div>
           </div>
           <div>
-            <label for="material-costs" class="block text-xs font-medium text-slate-600 mb-1">Material costs (total)</label>
-            <input type="number" id="material-costs" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="0.00" />
+            <label for="material-costs" class="block text-xs font-medium text-slate-600 mb-1">Материалы (сумма)</label>
+            <input type="number" id="material-costs" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="0,00" />
           </div>
           <div>
-            <label for="extra-expenses" class="block text-xs font-medium text-slate-600 mb-1">Additional expenses</label>
-            <input type="number" id="extra-expenses" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="Shipping, taxes…" />
+            <label for="extra-expenses" class="block text-xs font-medium text-slate-600 mb-1">Доп. расходы</label>
+            <input type="number" id="extra-expenses" required min="0" step="0.01" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm tabular-nums" placeholder="Доставка, налоги…" />
           </div>
         </div>
 
         <div class="space-y-3 pt-1">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Статус</p>
           <div>
-            <label for="progress" class="block text-xs font-medium text-slate-600 mb-1">Progress (0–100%)</label>
+            <label for="progress" class="block text-xs font-medium text-slate-600 mb-1">Прогресс (0–100%)</label>
             <input type="range" id="progress" min="0" max="100" value="0" class="w-full h-2 rounded-lg appearance-none bg-slate-200 accent-indigo-600" />
             <div class="flex justify-between text-xs text-slate-400 mt-1">
               <span>0%</span>
@@ -233,23 +255,23 @@
             </div>
           </div>
           <div>
-            <label for="status" class="block text-xs font-medium text-slate-600 mb-1">Stage</label>
+            <label for="status" class="block text-xs font-medium text-slate-600 mb-1">Этап</label>
             <select id="status" class="input-field w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white">
-              <option value="Negotiation">Negotiation</option>
-              <option value="Materials">Materials</option>
-              <option value="Cutting">Cutting</option>
-              <option value="Sewing">Sewing</option>
-              <option value="QC">QC</option>
-              <option value="Finished">Finished</option>
+              <option value="Negotiation">Переговоры</option>
+              <option value="Materials">Материалы</option>
+              <option value="Cutting">Раскрой</option>
+              <option value="Sewing">Пошив</option>
+              <option value="QC">ОТК</option>
+              <option value="Finished">Готово</option>
             </select>
           </div>
         </div>
 
         <p id="form-error" class="hidden text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2" role="alert"></p>
 
-        <div class="flex gap-3 pt-2 pb-2 border-t border-slate-100">
-          <button type="button" id="form-cancel" class="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">Cancel</button>
-          <button type="submit" id="form-submit" class="flex-1 rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 shadow-sm transition-all">Save order</button>
+        <div class="safe-pb flex gap-3 border-t border-slate-100 pt-3 pb-4 sm:pb-3">
+          <button type="button" id="form-cancel" class="min-h-[48px] flex-1 rounded-xl border border-slate-200 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 active:scale-[0.99]">Отмена</button>
+          <button type="submit" id="form-submit" class="min-h-[48px] flex-1 rounded-xl bg-indigo-600 py-3 text-sm font-medium text-white shadow-sm transition-all hover:bg-indigo-500 active:scale-[0.99]">Сохранить</button>
         </div>
       </form>
     </div>
