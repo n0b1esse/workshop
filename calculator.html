@@ -511,9 +511,26 @@
         cancel: "badge-cancel",
       };
 
+      const STORAGE_KEY = "sewing-calculator-v1";
+
       /** @type {{ id: string, name: string, customer: string, workshop: string, qty: number, materials: number, profit: number, status: keyof STATUS_LABELS }[]} */
       let orders = [];
       let firstDashboardPaint = true;
+
+      function load() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return;
+          const p = JSON.parse(raw);
+          if (Array.isArray(p)) orders = p;
+        } catch (e) {
+          console.warn("Load failed", e);
+        }
+      }
+
+      function save() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+      }
 
       const form = document.getElementById("order-form");
       const btnAdd = document.getElementById("btn-add");
@@ -638,6 +655,7 @@
           function handler() {
             tr.removeEventListener("animationend", handler);
             orders = orders.filter((o) => o.id !== id);
+            save();
             updateDashboard();
             renderTable();
           },
@@ -672,6 +690,7 @@
         };
 
         orders.push(order);
+        save();
         btnAdd.classList.remove("pulse");
         void btnAdd.offsetWidth;
         btnAdd.classList.add("pulse");
@@ -685,6 +704,8 @@
         document.getElementById("profit").value = "0";
       });
 
+      load();
+      renderTable();
       updateDashboard();
     })();
   </script>

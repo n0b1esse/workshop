@@ -191,6 +191,10 @@
     els.kpiRevenue.textContent = formatMoney(rev);
     els.kpiExpenses.textContent = formatMoney(exp);
     els.kpiProfit.textContent = formatMoney(prof);
+    els.kpiProfit.className = els.kpiProfit.className
+      .replace(/\btext-(?:emerald|red|slate)-\d+\b/g, "")
+      .trim() +
+      (prof < 0 ? " text-red-600" : prof > 0 ? " text-emerald-600" : " text-slate-900");
     els.kpiMargin.textContent = formatPct(avgMargin);
 
     const filtered = getFilteredOrders();
@@ -465,6 +469,9 @@
     els.form.reset();
     els.editId.value = "";
     document.getElementById("quantity").value = "1";
+    document.getElementById("factory-price").value = "0";
+    document.getElementById("material-costs").value = "0";
+    document.getElementById("logistics-misc").value = "0";
     document.getElementById("progress").value = "0";
     els.progressLabel.textContent = "0";
     openModal(false);
