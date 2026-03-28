@@ -158,6 +158,13 @@ body {
   font-weight: 600;
 }
 
+/* Status filter active state */
+.filter-btn.is-active {
+  background-color: rgb(15 23 42);
+  color: rgb(255 255 255);
+  border-color: rgb(15 23 42);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .kpi-card {
     animation: none;

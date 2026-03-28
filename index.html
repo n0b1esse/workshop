@@ -75,17 +75,17 @@
         <section class="grid grid-cols-2 gap-3 lg:grid-cols-4" id="kpi-section" aria-label="Сводка">
           <article class="kpi-card rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
             <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Общая выручка</p>
-            <p class="mt-2 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl" id="kpi-revenue">0&nbsp;$</p>
+            <p class="mt-2 text-xl font-bold tabular-nums text-slate-900 sm:text-2xl" id="kpi-revenue">0&nbsp;сом</p>
             <p class="mt-1 text-[11px] text-slate-500">Сумма бюджетов клиентов</p>
           </article>
           <article class="kpi-card rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
             <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Общие расходы</p>
-            <p class="mt-2 text-xl font-bold tabular-nums text-slate-800 sm:text-2xl" id="kpi-expenses">0&nbsp;$</p>
+            <p class="mt-2 text-xl font-bold tabular-nums text-slate-800 sm:text-2xl" id="kpi-expenses">0&nbsp;сом</p>
             <p class="mt-1 text-[11px] text-slate-500">Цех + материалы + логистика</p>
           </article>
           <article class="kpi-card rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
             <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Чистая прибыль</p>
-            <p class="mt-2 text-xl font-bold tabular-nums sm:text-2xl" id="kpi-profit">0&nbsp;$</p>
+            <p class="mt-2 text-xl font-bold tabular-nums sm:text-2xl" id="kpi-profit">0&nbsp;сом</p>
             <p class="mt-1 text-[11px] text-slate-500">Бюджет − все затраты</p>
           </article>
           <article class="kpi-card rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
@@ -98,19 +98,35 @@
         <section class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 sm:px-5">
             <h2 class="text-sm font-semibold text-slate-900">Заказы</h2>
-            <p class="text-xs text-slate-500" id="order-count">0 заказов</p>
+            <div class="flex items-center gap-3">
+              <p class="text-xs text-slate-500" id="order-count">0 заказов</p>
+              <button type="button" id="btn-export-csv" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
+                <i data-lucide="download" class="h-3.5 w-3.5" aria-hidden="true"></i>
+                CSV
+              </button>
+            </div>
+          </div>
+
+          <div id="status-filters" class="flex gap-1.5 overflow-x-auto border-b border-slate-100 px-4 py-2.5">
+            <button type="button" data-status="" class="filter-btn shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 transition">Все</button>
+            <button type="button" data-status="Draft" class="filter-btn shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 transition">Черновик</button>
+            <button type="button" data-status="Sampling" class="filter-btn shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 transition">Образцы</button>
+            <button type="button" data-status="Production" class="filter-btn shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 transition">Производство</button>
+            <button type="button" data-status="QC" class="filter-btn shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 transition">ОТК</button>
+            <button type="button" data-status="Shipped" class="filter-btn shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 transition">Отгружен</button>
           </div>
 
           <div id="orders-cards" class="space-y-3 p-3 md:hidden"></div>
 
           <div class="hidden overflow-x-auto md:block">
-            <table class="w-full min-w-[640px] text-left text-sm">
+            <table class="w-full min-w-[800px] text-left text-sm">
               <thead class="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
                   <th class="px-5 py-3">Заказ</th>
                   <th class="px-5 py-3">Клиент</th>
                   <th class="px-5 py-3 tabular-nums">Прибыль</th>
                   <th class="min-w-[140px] px-5 py-3">Прогресс</th>
+                  <th class="px-5 py-3">Дедлайн</th>
                   <th class="px-5 py-3">Статус</th>
                   <th class="px-5 py-3 text-right"></th>
                 </tr>
@@ -226,6 +242,15 @@
                 <option value="Shipped">Отгружен</option>
               </select>
             </div>
+            <div>
+              <label for="deadline" class="mb-1 block text-xs font-medium text-slate-600">Дедлайн</label>
+              <input type="date" id="deadline" class="input-field w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            </div>
+          </div>
+
+          <div>
+            <label for="notes" class="mb-1 block text-xs font-medium text-slate-600">Заметки</label>
+            <textarea id="notes" rows="3" maxlength="500" class="input-field w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm" placeholder="Особые требования, ткань, контакты цеха…"></textarea>
           </div>
         </div>
 
