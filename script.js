@@ -23,12 +23,15 @@
    * @property {number} progressPercent
    * @property {OrderStatus} status
    * @property {number} createdAt
+   * @property {string} [deadline]
+   * @property {string} [notes]
    */
 
   /** @type {Order[]} */
   let orders = [];
 
   let searchQuery = "";
+  let statusFilter = "";
 
   const STATUS_BADGE = {
     Draft: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
@@ -112,11 +115,9 @@
 
   function formatMoney(n) {
     return new Intl.NumberFormat("ru-RU", {
-      style: "currency",
-      currency: "USD",
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
-    }).format(n);
+    }).format(n) + "\u00a0сом";
   }
 
   function formatPct(n) {
@@ -153,6 +154,8 @@
     return {
       ...o,
       logisticsMisc: typeof o.logisticsMisc === "number" ? o.logisticsMisc : 0,
+      deadline: typeof o.deadline === "string" ? o.deadline : "",
+      notes: typeof o.notes === "string" ? o.notes : "",
     };
   }
 
@@ -164,15 +167,65 @@
     if (typeof lucide !== "undefined" && lucide.createIcons) lucide.createIcons();
   }
 
+  function deadlineDisplay(deadline) {
+    if (!deadline) return '<span class="text-slate-400">—</span>';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const d = new Date(deadline + "T00:00:00");
+    const diff = Math.round((d - today) / 86400000);
+    const fmt = d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" });
+    if (diff < 0) return '<span class="text-xs font-semibold text-red-600">' + fmt + " · просрочен</span>";
+    if (diff === 0) return '<span class="text-xs font-semibold text-orange-500">' + fmt + " · сегодня</span>";
+    if (diff <= 3) return '<span class="text-xs font-semibold text-amber-600">' + fmt + " · " + diff + "д</span>";
+    return '<span class="text-xs text-slate-600">' + fmt + "</span>";
+  }
+
   function getFilteredOrders() {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return orders;
     return orders.filter((o) => {
-      return (
-        o.orderName.toLowerCase().includes(q) ||
-        o.clientName.toLowerCase().includes(q)
-      );
+      const matchesSearch = !q || o.orderName.toLowerCase().includes(q) || o.clientName.toLowerCase().includes(q);
+      const matchesStatus = !statusFilter || o.status === statusFilter;
+      return matchesSearch && matchesStatus;
     });
+  }
+
+  function exportCsv() {
+    const headers = ["Заказ", "Клиент", "Бюджет (сом)", "Кол-во", "Цена цеха/ед.", "Материалы", "Логистика", "Расходы цеха", "Всего расходы", "Прибыль", "Маржа %", "Прогресс %", "Статус", "Дедлайн", "Заметки", "Создан"];
+    const rows = orders.map((o) => {
+      const c = compute(o);
+      return [
+        o.orderName,
+        o.clientName,
+        o.clientBudget,
+        o.quantity,
+        o.factoryPricePerUnit,
+        o.materialCosts,
+        o.logisticsMisc,
+        c.workshopCost,
+        c.totalExpenses,
+        c.profit,
+        c.marginPct.toFixed(1),
+        o.progressPercent,
+        STATUS_LABELS[o.status] || o.status,
+        o.deadline || "",
+        o.notes || "",
+        o.createdAt ? new Date(o.createdAt).toLocaleDateString("ru-RU") : "",
+      ];
+    });
+
+    const csv = "\uFEFF" + [headers, ...rows]
+      .map((row) => row.map((cell) => '"' + String(cell).replace(/"/g, '""') + '"').join(";"))
+      .join("\r\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "заказы-" + new Date().toISOString().slice(0, 10) + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   /** Summary cards reflect all orders; search only filters the list below. */
@@ -295,6 +348,7 @@
               <div class="progress-bar-fill" data-progress-target="${pct}" style="width:0%"></div>
             </div>
           </td>
+          <td class="px-5 py-3">${deadlineDisplay(o.deadline || "")}</td>
           <td class="px-5 py-3">
             <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badge}">${escapeHtml(statusText)}</span>
           </td>
@@ -307,7 +361,7 @@
         const trExp = document.createElement("tr");
         trExp.className = "bg-slate-50/90";
         trExp.innerHTML = `
-          <td colspan="6" class="p-0">
+          <td colspan="7" class="p-0">
             <div class="order-expand" id="ex-${o.id}">
               <div class="order-expand-inner">
                 <div class="border-t border-slate-100 px-5 py-5">
@@ -333,6 +387,7 @@
                     Логистика и прочее: <strong class="tabular-nums text-slate-800">${formatMoney(c.logistics)}</strong>
                     · Маржа: <strong class="${c.marginPct < 10 ? "text-red-600" : c.marginPct > 20 ? "text-emerald-600" : "text-slate-800"}">${formatPct(c.marginPct)}</strong>
                   </div>
+                  ${o.notes ? '<div class="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"><span class="font-semibold text-slate-500 uppercase tracking-wide">Заметки: </span>' + escapeHtml(o.notes) + "</div>" : ""}
                 </div>
               </div>
             </div>
@@ -365,9 +420,12 @@
           </div>
           <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
             <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${badge}">${escapeHtml(statusText)}</span>
-            <div class="flex gap-1">
-              <button type="button" class="rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100" data-act="edit" data-id="${o.id}">Изменить</button>
-              <button type="button" class="rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50" data-act="del" data-id="${o.id}">Удалить</button>
+            <div class="flex items-center gap-2">
+              ${o.deadline ? deadlineDisplay(o.deadline) : ""}
+              <div class="flex gap-1">
+                <button type="button" class="rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100" data-act="edit" data-id="${o.id}">Изменить</button>
+                <button type="button" class="rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50" data-act="del" data-id="${o.id}">Удалить</button>
+              </div>
             </div>
           </div>
           <div class="order-expand mt-3" id="ex-mob-${o.id}">
@@ -381,6 +439,7 @@
                   <li class="flex justify-between border-t border-slate-200 pt-2 font-semibold"><span class="text-slate-700">Ваш карман</span><span class="${c.profit >= 0 ? "text-emerald-600" : "text-red-600"} tabular-nums">${formatMoney(c.profit)}</span></li>
                 </ul>
                 <p class="mt-2 text-xs text-slate-500">Маржа ${formatPct(c.marginPct)} · цех ${formatPct(o.clientBudget > 0 ? (c.workshopCost / o.clientBudget) * 100 : 0)} от бюджета</p>
+                ${o.notes ? '<p class="mt-2 border-t border-slate-200 pt-2 text-xs text-slate-600"><span class="font-semibold">Заметки: </span>' + escapeHtml(o.notes) + "</p>" : ""}
               </div>
             </div>
           </div>
@@ -473,6 +532,8 @@
     document.getElementById("material-costs").value = "0";
     document.getElementById("logistics-misc").value = "0";
     document.getElementById("progress").value = "0";
+    document.getElementById("deadline").value = "";
+    document.getElementById("notes").value = "";
     els.progressLabel.textContent = "0";
     openModal(false);
   }
@@ -490,6 +551,8 @@
     document.getElementById("logistics-misc").value = String(o.logisticsMisc ?? 0);
     document.getElementById("progress").value = String(o.progressPercent);
     document.getElementById("status").value = o.status;
+    document.getElementById("deadline").value = o.deadline || "";
+    document.getElementById("notes").value = o.notes || "";
     els.progressLabel.textContent = String(o.progressPercent);
     openModal(true);
   }
@@ -515,6 +578,8 @@
     const progressPercent = parseInt(els.progress.value, 10);
     /** @type {OrderStatus} */
     const status = document.getElementById("status").value;
+    const deadline = document.getElementById("deadline").value;
+    const notes = document.getElementById("notes").value.trim();
     const edit = els.editId.value.trim();
 
     if (!orderName || !clientName) {
@@ -538,6 +603,15 @@
       return;
     }
 
+    const totalExpenses = quantity * factoryPrice + materialCosts + logisticsMisc;
+    if (totalExpenses > clientBudget) {
+      showErr(
+        "Расходы (" + formatMoney(totalExpenses) + ") превышают бюджет клиента (" + formatMoney(clientBudget) +
+        "). Убыток составит " + formatMoney(totalExpenses - clientBudget) + ". Скорректируйте цифры."
+      );
+      return;
+    }
+
     const payload = {
       orderName,
       clientName,
@@ -548,6 +622,8 @@
       logisticsMisc,
       progressPercent: Math.min(100, Math.max(0, Number.isNaN(progressPercent) ? 0 : progressPercent)),
       status,
+      deadline,
+      notes,
     };
 
     if (edit) {
@@ -572,6 +648,19 @@
     renderTable();
   }
 
+  function initFilters() {
+    const allBtn = document.querySelector('.filter-btn[data-status=""]');
+    if (allBtn) allBtn.classList.add("is-active");
+    document.querySelectorAll(".filter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        statusFilter = btn.getAttribute("data-status") || "";
+        document.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        renderTable();
+      });
+    });
+  }
+
   function wireBudgetLeakInputs() {
     const ids = ["client-budget", "quantity", "factory-price", "material-costs", "logistics-misc"];
     ids.forEach((id) => {
@@ -594,6 +683,10 @@
       els.progressLabel.textContent = els.progress.value;
     });
     wireBudgetLeakInputs();
+    initFilters();
+
+    const btnExport = document.getElementById("btn-export-csv");
+    if (btnExport) btnExport.addEventListener("click", exportCsv);
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && els.panel.classList.contains("is-open")) closeModal();
